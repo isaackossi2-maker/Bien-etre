@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum QuestionType {
+  SINGLE
+  MULTIPLE
+}
+
+enum MessageType {
+  TEXT
+  AUDIO
+  FILE
+}
+
+model User {
+  id              String           @id @default(uuid())
+  email           String           @unique
+  password        String
+  name            String
+  avatar          String?
+  role            Role             @default(USER)
+  createdAt       DateTime         @default(now())
+  examResults     ExamResult[]
+  logs            Log[]
+  sentMessages    Message[]        @relation("MessageSender")
+  receivedMessages Message[]       @relation("MessageRecipient")
+  posts           Post[]
+  postReactions   PostReaction[]
+  postComments    PostComment[]
+  postRecipient   PostRecipient[]
+  meditationViews MeditationView[]
+  createdGroups    Group[]        @relation("GroupCreator")
+  groupMemberships GroupMember[]
+  groupMessages    GroupMessage[] @relation("GroupMessageSender")
+}
+
+model Exam {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  isActive    Boolean      @default(true)
+  duration    Int?
+  maxAttempts Int?
+  createdAt   DateTime     @default(now())
+  questions   Question[]
+  results     ExamResult[]
+}
+
+model Question {
+  id             String          @id @default(uuid())
+  text           String
+  type           QuestionType    @default(SINGLE)
+  order          Int             @default(0)
+  examId         String
+  exam           Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  answers        Answer[]
+  userAnswers    UserAnswer[]
+  questionGrades QuestionGrade[]
+  createdAt      DateTime        @default(now())
+}
+
+model Answer {
+  id          String       @id @default(uuid())
+  text        String
+  isCorrect   Boolean      @default(false)
+  questionId  String
+  question    Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userAnswers UserAnswer[]
+}
+
+model Meditation {
+  id          String           @id @default(uuid())
+  title       String
+  description String?
+  content     String?
+  duration    Int?
+  createdAt   DateTime         @default(now())
+  views       MeditationView[]
+}
+
+model MeditationView {
+  id           String     @id @default(uuid())
+  meditationId String
+  meditation   Meditation @relation(fields: [meditationId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  viewedAt     DateTime   @default(now())
+
+  @@unique([meditationId, userId])
+}
+
+model Message {
+  id                     String      @id @default(uuid())
+  senderId               String
+  sender                 User        @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipientId            String
+  recipient              User        @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  type                   MessageType @default(TEXT)
+  content                String?
+  audioData              String?
+  audioDuration          Int?
+  fileData               String?
+  fileName               String?
+  fileMimeType           String?
+  readAt                 DateTime?
+  createdAt              DateTime    @default(now())
+  examResultNotification ExamResult?
+}
+
+model Post {
+  id         String          @id @default(uuid())
+  authorId   String
+  author     User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content    String
+  background String?
+  createdAt  DateTime        @default(now())
+  reactions  PostReaction[]
+  comments   PostComment[]
+  recipients PostRecipient[]
+}
+
+// Un post sans destinataire (recipients vide) est public, visible par tout le monde.
+model PostRecipient {
+  id     String @id @default(uuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model PostReaction {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String   @default("👍")
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+model PostComment {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model ExamResult {
+  id                     String          @id @default(uuid())
+  userId                 String
+  user                   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examId                 String
+  exam                   Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  score                  Int
+  total                  Int
+  comment                String?
+  createdAt              DateTime        @default(now())
+  userAnswers            UserAnswer[]
+  questionGrades         QuestionGrade[]
+  notificationMessageId  String?         @unique
+  notificationMessage    Message?        @relation(fields: [notificationMessageId], references: [id], onDelete: SetNull)
+}
+
+model QuestionGrade {
+  id           String     @id @default(uuid())
+  examResultId String
+  examResult   ExamResult @relation(fields: [examResultId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  isCorrect    Boolean
+
+  @@unique([examResultId, questionId])
+}
+
+model UserAnswer {
+  id           String     @id @default(uuid())
+  examResultId String
+  examResult   ExamResult @relation(fields: [examResultId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answerId     String
+  answer       Answer     @relation(fields: [answerId], references: [id], onDelete: Cascade)
+}
+
+model Group {
+  id          String         @id @default(uuid())
+  name        String
+  avatar      String?
+  createdById String
+  createdBy   User           @relation("GroupCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  members     GroupMember[]
+  messages    GroupMessage[]
+}
+
+model GroupMember {
+  id       String   @id @default(uuid())
+  groupId  String
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt DateTime @default(now())
+
+  @@unique([groupId, userId])
+}
+
+model GroupMessage {
+  id            String      @id @default(uuid())
+  groupId       String
+  group         Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  senderId      String
+  sender        User        @relation("GroupMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  type          MessageType @default(TEXT)
+  content       String?
+  audioData     String?
+  audioDuration Int?
+  fileData      String?
+  fileName      String?
+  fileMimeType  String?
+  createdAt     DateTime    @default(now())
+}
+
+model Log {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  message   String?
+  createdAt DateTime @default(now())
+}
