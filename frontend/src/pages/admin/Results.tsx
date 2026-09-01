@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { ExamResult, ExamResultDetail } from "../../types";
+import { formatDateTime } from "../../utils/date";
+import { useTranslatedText, useTranslatedTexts } from "../../i18n/useTranslatedContent";
 
 export default function AdminResults() {
+  const { t, i18n } = useTranslation();
   const [results, setResults] = useState<ExamResult[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ExamResultDetail | null>(null);
@@ -58,7 +62,10 @@ export default function AdminResults() {
   }
 
   async function saveGrade() {
-    if (!detail || scoreDraft > totalDraft) return;
+    // Les boutons de correction ne sont pas dans un <form>, donc les contraintes HTML5 min/max
+    // des <input> ne s'appliquent jamais (elles ne sont vérifiées qu'à la soumission d'un
+    // formulaire) : une note négative passait silencieusement jusqu'ici.
+    if (!detail || scoreDraft < 0 || totalDraft < 1 || scoreDraft > totalDraft) return;
     setSaving(true);
     try {
       const questionGrades = detail.questions.map((q) => ({ questionId: q.id, isCorrect: !!grades[q.id] }));
@@ -78,23 +85,29 @@ export default function AdminResults() {
 
   const suggestedScore = detail ? detail.questions.filter((q) => grades[q.id]).length : 0;
   const scoreExceedsTotal = scoreDraft > totalDraft;
+  const scoreInvalid = scoreExceedsTotal || scoreDraft < 0 || totalDraft < 1;
+
+  const resultExamTitles = useTranslatedTexts(results.map((r) => r.exam?.title));
+  const detailQuestionTexts = useTranslatedTexts(detail?.questions.map((q) => q.text) ?? []);
+  const detailAnswerTexts = useTranslatedTexts(detail?.questions.flatMap((q) => q.answers.map((a) => a.text)) ?? []);
+  let answerCursor = 0;
 
   return (
     <div>
       <div className="page-header">
-        <h1>Notes</h1>
+        <h1>{t("adminResults.title")}</h1>
       </div>
 
       {results.length === 0 ? (
-        <p className="empty-state">Aucun examen n'a encore été passé.</p>
+        <p className="empty-state">{t("adminResults.noResults")}</p>
       ) : (
-        results.map((r) => (
+        results.map((r, rIdx) => (
           <div key={r.id} className="card" style={{ marginBottom: 16 }}>
             <div className="page-header" style={{ marginBottom: openId === r.id ? 16 : 0 }}>
               <div>
-                <h3 style={{ margin: 0 }}>{r.exam?.title}</h3>
+                <h3 style={{ margin: 0 }}>{resultExamTitles[rIdx]}</h3>
                 <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                  {r.user?.name} ({r.user?.email}) — {new Date(r.createdAt).toLocaleString("fr-FR")}
+                  {r.user?.name} ({r.user?.email}) — {formatDateTime(r.createdAt, i18n.language)}
                 </span>
               </div>
               <div className="list-actions" style={{ alignItems: "center" }}>
@@ -102,7 +115,7 @@ export default function AdminResults() {
                   {r.score} / {r.total}
                 </span>
                 <button className="btn btn-outline" onClick={() => openCorrection(r)}>
-                  {openId === r.id ? "Fermer" : "Corriger"}
+                  {openId === r.id ? t("adminResults.close") : t("adminResults.correct")}
                 </button>
               </div>
             </div>
@@ -111,23 +124,25 @@ export default function AdminResults() {
               <div>
                 {detail.questions.map((q, idx) => {
                   const isCorrect = !!grades[q.id];
+                  const answerStart = answerCursor;
+                  answerCursor += q.answers.length;
                   return (
-                    <div key={q.id} className="card" style={{ marginBottom: 12, background: "#fafbfc" }}>
+                    <div key={q.id} className="card" style={{ marginBottom: 12, background: "var(--surface-muted)" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                         <p style={{ fontWeight: 600, margin: 0 }}>
-                          {idx + 1}. {q.text}
+                          {idx + 1}. {detailQuestionTexts[idx]}
                         </p>
                         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                           <button
                             type="button"
-                            title="Marquer correcte"
+                            title={t("adminResults.markCorrect")}
                             onClick={() => setGrade(q.id, true)}
                             style={{
                               width: 32,
                               height: 32,
                               borderRadius: 8,
                               border: isCorrect ? "none" : "1px solid var(--border)",
-                              background: isCorrect ? "var(--success)" : "#fff",
+                              background: isCorrect ? "var(--success)" : "var(--surface)",
                               color: isCorrect ? "#fff" : "var(--success)",
                               cursor: "pointer",
                               fontWeight: 700,
@@ -137,14 +152,14 @@ export default function AdminResults() {
                           </button>
                           <button
                             type="button"
-                            title="Marquer incorrecte"
+                            title={t("adminResults.markIncorrect")}
                             onClick={() => setGrade(q.id, false)}
                             style={{
                               width: 32,
                               height: 32,
                               borderRadius: 8,
                               border: !isCorrect ? "none" : "1px solid var(--border)",
-                              background: !isCorrect ? "var(--danger)" : "#fff",
+                              background: !isCorrect ? "var(--danger)" : "var(--surface)",
                               color: !isCorrect ? "#fff" : "var(--danger)",
                               cursor: "pointer",
                               fontWeight: 700,
@@ -154,7 +169,7 @@ export default function AdminResults() {
                           </button>
                         </div>
                       </div>
-                      {q.answers.map((a) => (
+                      {q.answers.map((a, aIdx) => (
                         <div
                           key={a.id}
                           style={{
@@ -163,8 +178,10 @@ export default function AdminResults() {
                             fontWeight: a.selected ? 700 : 400,
                           }}
                         >
-                          {a.selected ? "☑" : "☐"} {a.text}
-                          {a.isCorrect && <span style={{ fontSize: "0.75rem", marginLeft: 6 }}>(bonne réponse)</span>}
+                          {a.selected ? "☑" : "☐"} {detailAnswerTexts[answerStart + aIdx]}
+                          {a.isCorrect && (
+                            <span style={{ fontSize: "0.75rem", marginLeft: 6 }}>{t("adminResults.correctAnswerSuffix")}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -172,19 +189,19 @@ export default function AdminResults() {
                 })}
 
                 <label style={{ display: "block", marginBottom: 12 }}>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Commentaire</span>
+                  <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>{t("adminResults.comment")}</span>
                   <textarea
                     style={{ width: "100%", marginTop: 4 }}
                     rows={3}
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
-                    placeholder="Un commentaire pour l'utilisateur (optionnel)..."
+                    placeholder={t("adminResults.commentPlaceholder")}
                   />
                 </label>
 
                 <div className="inline-form" style={{ alignItems: "center" }}>
                   <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    Note à attribuer
+                    {t("adminResults.scoreToGive")}
                     <input
                       type="number"
                       min={0}
@@ -194,7 +211,7 @@ export default function AdminResults() {
                     />
                   </label>
                   <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    Barème (sur)
+                    {t("adminResults.scale")}
                     <input
                       type="number"
                       min={1}
@@ -205,16 +222,18 @@ export default function AdminResults() {
                   </label>
                   {scoreTouched && (
                     <button type="button" className="btn btn-outline" onClick={applySuggestion}>
-                      Revenir à la suggestion ({suggestedScore}/{detail.total})
+                      {t("adminResults.backToSuggestion", { score: suggestedScore, total: detail.total })}
                     </button>
                   )}
-                  <button className="btn btn-primary" onClick={saveGrade} disabled={saving || scoreExceedsTotal}>
-                    {saving ? "Enregistrement..." : "Attribuer la note"}
+                  <button className="btn btn-primary" onClick={saveGrade} disabled={saving || scoreInvalid}>
+                    {saving ? t("adminResults.assigning") : t("adminResults.assignScore")}
                   </button>
                 </div>
-                {scoreExceedsTotal && (
+                {scoreInvalid && (
                   <p className="error-text" style={{ marginTop: 8 }}>
-                    La note ({scoreDraft}) ne peut pas dépasser le barème ({totalDraft}).
+                    {scoreExceedsTotal
+                      ? t("adminResults.scoreExceedsTotal", { score: scoreDraft, total: totalDraft })
+                      : t("adminResults.scoreInvalid")}
                   </p>
                 )}
               </div>

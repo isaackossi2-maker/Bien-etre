@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useCall } from "./CallContext";
 import { useAuth } from "../auth/AuthContext";
+import { useRingtone } from "./useRingtone";
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -8,36 +10,9 @@ function formatDuration(seconds: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function useRingtone(active: boolean) {
-  useEffect(() => {
-    if (!active) return;
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-
-    function beep() {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.frequency.value = 700;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-      osc.stop(ctx.currentTime + 0.4);
-    }
-
-    beep();
-    const interval = window.setInterval(beep, 1500);
-    return () => {
-      window.clearInterval(interval);
-      ctx.close();
-    };
-  }, [active]);
-}
-
 export default function CallOverlay() {
-  const { status, peer, isVideo, error, duration, localStream, remoteStream, muted, cameraOff, acceptCall, hangUp, toggleMute, toggleCamera } =
+  const { t } = useTranslation();
+  const { status, peer, isVideo, error, errorKey, duration, localStream, remoteStream, muted, cameraOff, acceptCall, hangUp, toggleMute, toggleCamera } =
     useCall();
   const { user } = useAuth();
   const [dismissedError, setDismissedError] = useState<string | null>(null);
@@ -62,7 +37,10 @@ export default function CallOverlay() {
       const timer = window.setTimeout(() => setDismissedError(error), 4000);
       return () => window.clearTimeout(timer);
     }
-  }, [error]);
+    // errorKey change à chaque nouvelle erreur même si le message est identique au précédent
+    // (voir CallContext) : c'est lui le signal de "nouvel évènement", pas la valeur de error.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [errorKey]);
 
   if (status === "idle") {
     if (error && error !== dismissedError) {
@@ -72,7 +50,7 @@ export default function CallOverlay() {
             position: "fixed",
             bottom: 20,
             right: 20,
-            background: "#fff",
+            background: "var(--surface)",
             color: "var(--text)",
             border: "1px solid var(--border)",
             padding: "12px 18px",
@@ -91,7 +69,7 @@ export default function CallOverlay() {
   const overlayBase: React.CSSProperties = {
     position: "fixed",
     inset: 0,
-    background: "rgba(245, 246, 250, 0.97)",
+    background: "var(--overlay-bg)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -128,19 +106,19 @@ export default function CallOverlay() {
         {avatar}
         <h2 style={{ margin: "0 0 4px" }}>{peer?.name}</h2>
         <p style={{ color: "var(--text-muted)", marginTop: 0 }}>
-          {isVideo ? "Appel vidéo entrant..." : "Appel vocal entrant..."}
+          {isVideo ? t("callOverlay.incomingVideo") : t("callOverlay.incomingVoice")}
         </p>
         <div style={{ display: "flex", gap: 24, marginTop: 24 }}>
           <button
             onClick={hangUp}
-            title="Refuser"
+            title={t("callOverlay.decline")}
             style={{ width: 56, height: 56, borderRadius: "50%", border: "none", background: "var(--danger)", color: "#fff", fontSize: "1.4rem", cursor: "pointer" }}
           >
             ✕
           </button>
           <button
             onClick={acceptCall}
-            title="Accepter"
+            title={t("callOverlay.accept")}
             style={{ width: 56, height: 56, borderRadius: "50%", border: "none", background: "var(--success)", color: "#fff", fontSize: "1.4rem", cursor: "pointer" }}
           >
             ✓
@@ -152,7 +130,7 @@ export default function CallOverlay() {
 
   // outgoing, connecting, active
   const statusLabel =
-    status === "outgoing" ? "Appel en cours..." : status === "connecting" ? "Connexion..." : formatDuration(duration);
+    status === "outgoing" ? t("callOverlay.ongoing") : status === "connecting" ? t("callOverlay.connecting") : formatDuration(duration);
 
   const showVideo = isVideo && status === "active";
 
@@ -236,13 +214,13 @@ export default function CallOverlay() {
       <div style={{ display: "flex", gap: 20, marginTop: 28, alignItems: "center" }}>
         <button
           onClick={toggleMute}
-          title={muted ? "Réactiver le micro" : "Couper le micro"}
+          title={muted ? t("callOverlay.enableMic") : t("callOverlay.disableMic")}
           style={{
             width: 48,
             height: 48,
             borderRadius: "50%",
             border: muted ? "none" : "1px solid var(--border)",
-            background: muted ? "var(--danger)" : "#fff",
+            background: muted ? "var(--danger)" : "var(--surface)",
             color: muted ? "#fff" : "var(--text)",
             fontSize: "1.1rem",
             cursor: "pointer",
@@ -253,13 +231,13 @@ export default function CallOverlay() {
         {isVideo && (
           <button
             onClick={toggleCamera}
-            title={cameraOff ? "Réactiver la caméra" : "Couper la caméra"}
+            title={cameraOff ? t("callOverlay.enableCamera") : t("callOverlay.disableCamera")}
             style={{
               width: 48,
               height: 48,
               borderRadius: "50%",
               border: cameraOff ? "none" : "1px solid var(--border)",
-              background: cameraOff ? "var(--danger)" : "#fff",
+              background: cameraOff ? "var(--danger)" : "var(--surface)",
               color: cameraOff ? "#fff" : "var(--text)",
               fontSize: "1.1rem",
               cursor: "pointer",
@@ -270,7 +248,7 @@ export default function CallOverlay() {
         )}
         <button
           onClick={hangUp}
-          title="Raccrocher"
+          title={t("callOverlay.hangUp")}
           style={{ width: 56, height: 56, borderRadius: "50%", border: "none", background: "var(--danger)", color: "#fff", fontSize: "1.4rem", cursor: "pointer" }}
         >
           ✕

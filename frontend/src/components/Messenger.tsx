@@ -1,9 +1,12 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useCall } from "../call/CallContext";
 import { DirectoryUser, GroupMessage, GroupSummary, Message, MessageContact } from "../types";
 import { resizeImageToDataUrl } from "../utils/image";
+import { formatDateTime } from "../utils/date";
+import { useTranslatedTexts } from "../i18n/useTranslatedContent";
 import Avatar from "./Avatar";
 import MicBadge from "./icons/MicBadge";
 import PhoneCallIcon from "./icons/PhoneCallIcon";
@@ -45,6 +48,7 @@ function formatDuration(seconds: number) {
 }
 
 export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: string }) {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { startCall, status: callStatus, startGroupCall, groupCallStatus } = useCall();
   const [contacts, setContacts] = useState<MessageContact[]>([]);
@@ -81,6 +85,22 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
   const timerRef = useRef<number | null>(null);
   const cancelledRef = useRef(false);
   const recordSecondsRef = useRef(0);
+  const recordingConversationRef = useRef<string | null>(null);
+
+  function conversationKey(s: Selected | null) {
+    return s ? `${s.kind}:${s.id}` : null;
+  }
+
+  // Si l'utilisateur change de conversation pendant un enregistrement vocal, on annule
+  // l'enregistrement en cours plutôt que de le laisser s'envoyer vers la conversation
+  // fraîchement sélectionnée (ou vers celle quittée) : ni l'un ni l'autre n'est ce que
+  // l'utilisateur a voulu faire.
+  useEffect(() => {
+    if (recording && recordingConversationRef.current !== null && recordingConversationRef.current !== conversationKey(selected)) {
+      cancelRecording();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
 
   function loadContacts() {
     api.get<MessageContact[]>("/messages/contacts").then((res) => setContacts(res.data));
@@ -153,7 +173,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
     if (!file || !selected) return;
     setFileError(null);
     if (file.size > 8 * 1024 * 1024) {
-      setFileError("Le fichier est trop volumineux (8 Mo maximum).");
+      setFileError(t("messenger.fileTooLarge"));
       return;
     }
     setSendingFile(true);
@@ -163,7 +183,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
       loadMessages(selected);
       if (selected.kind === "group") loadGroups();
     } catch {
-      setFileError("Impossible d'envoyer ce fichier.");
+      setFileError(t("messenger.fileSendError"));
     } finally {
       setSendingFile(false);
     }
@@ -172,13 +192,11 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
   async function startRecording() {
     setMicError(null);
     if (window.isSecureContext === false) {
-      setMicError(
-        "Le micro nécessite une connexion sécurisée (HTTPS). Cette page est chargée en HTTP simple depuis une adresse autre que localhost, donc le navigateur bloque l'accès au micro."
-      );
+      setMicError(t("messenger.micHttpsRequired"));
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setMicError("L'enregistrement audio n'est pas pris en charge par ce navigateur.");
+      setMicError(t("messenger.micNotSupported"));
       return;
     }
     try {
@@ -199,6 +217,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
           window.clearInterval(timerRef.current);
           timerRef.current = null;
         }
+        recordingConversationRef.current = null;
         if (cancelledRef.current || !selected) {
           setRecording(false);
           setRecordSeconds(0);
@@ -220,6 +239,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
       };
 
       mediaRecorderRef.current = recorder;
+      recordingConversationRef.current = conversationKey(selected);
       recorder.start();
       setRecording(true);
       recordSecondsRef.current = 0;
@@ -235,15 +255,13 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
       const name = err instanceof DOMException ? err.name : "";
       console.error("Erreur d'accès au micro:", err);
       if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-        setMicError(
-          "Accès au micro refusé. Autorisez le micro pour ce site dans les paramètres du navigateur (cliquez sur l'icône de cadenas/micro dans la barre d'adresse), puis réessayez."
-        );
+        setMicError(t("messenger.micDenied"));
       } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-        setMicError("Aucun micro détecté sur cet appareil.");
+        setMicError(t("messenger.micNotFound"));
       } else if (name === "NotReadableError" || name === "TrackStartError") {
-        setMicError("Le micro est déjà utilisé par une autre application.");
+        setMicError(t("messenger.micBusy"));
       } else {
-        setMicError(`Impossible d'accéder au micro${name ? ` (${name})` : ""}.`);
+        setMicError(t("messenger.micGeneric", { name: name ? ` (${name})` : "" }));
       }
     }
   }
@@ -298,14 +316,14 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
     if (!file) return;
     setGroupAvatarError(null);
     if (!file.type.startsWith("image/")) {
-      setGroupAvatarError("Le fichier doit être une image.");
+      setGroupAvatarError(t("messenger.groupAvatarError"));
       return;
     }
     try {
       const dataUrl = await resizeImageToDataUrl(file);
       setGroupAvatar(dataUrl);
     } catch {
-      setGroupAvatarError("Impossible de traiter cette image.");
+      setGroupAvatarError(t("messenger.groupAvatarProcessError"));
     }
   }
 
@@ -325,17 +343,17 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
     }
   }
 
-  const filteredContacts = contacts.filter((c) => {
+  const filteredContacts = useMemo(() => contacts.filter((c) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q);
-  });
+  }), [contacts, search]);
 
-  const filteredGroups = groups.filter((g) => {
+  const filteredGroups = useMemo(() => groups.filter((g) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return g.name.toLowerCase().includes(q);
-  });
+  }), [groups, search]);
 
   const newDiscussionModal = showNewDiscussion && (
     <div
@@ -356,9 +374,9 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="page-header" style={{ marginBottom: 12 }}>
-          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Nouvelle discussion</h2>
+          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{t("messenger.newDiscussion")}</h2>
           <button className="btn btn-outline" onClick={() => setShowNewDiscussion(false)}>
-            Fermer
+            {t("common.close")}
           </button>
         </div>
 
@@ -367,20 +385,20 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
             className={`btn ${newDiscussionTab === "direct" ? "btn-primary" : "btn-outline"}`}
             onClick={() => setNewDiscussionTab("direct")}
           >
-            Message direct
+            {t("messenger.directMessage")}
           </button>
           <button
             className={`btn ${newDiscussionTab === "group" ? "btn-primary" : "btn-outline"}`}
             onClick={() => setNewDiscussionTab("group")}
           >
-            Créer un groupe
+            {t("messenger.createGroup")}
           </button>
         </div>
 
         {newDiscussionTab === "direct" ? (
           <div>
             {directory.length === 0 ? (
-              <p className="empty-state">Aucun utilisateur disponible.</p>
+              <p className="empty-state">{t("messenger.noUsersAvailable")}</p>
             ) : (
               directory.map((u) => (
                 <div
@@ -401,7 +419,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
                   <Avatar name={u.name} avatar={u.avatar} size={32} />
                   {u.name}{" "}
                   <span className={`badge ${u.role === "ADMIN" ? "badge-admin" : "badge-user"}`}>
-                    {u.role === "ADMIN" ? "Admin" : "Utilisateur"}
+                    {u.role === "ADMIN" ? t("common.admin") : t("common.user")}
                   </span>
                 </div>
               ))
@@ -414,11 +432,11 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <div className="list-actions">
                   <button type="button" className="btn btn-outline" onClick={() => groupAvatarInputRef.current?.click()}>
-                    Photo du groupe
+                    {t("messenger.groupPhoto")}
                   </button>
                   {groupAvatar && (
                     <button type="button" className="btn btn-outline" onClick={() => setGroupAvatar(null)}>
-                      Retirer
+                      {t("messenger.remove")}
                     </button>
                   )}
                 </div>
@@ -433,11 +451,11 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
               </div>
             </div>
             <label>
-              Nom du groupe
+              {t("messenger.groupName")}
               <input value={groupName} onChange={(e) => setGroupName(e.target.value)} required />
             </label>
             <div>
-              <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Membres</span>
+              <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>{t("messenger.members")}</span>
               <div
                 style={{
                   marginTop: 6,
@@ -466,7 +484,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
               disabled={creatingGroup || !groupName.trim() || groupMemberIds.length === 0}
               onClick={handleCreateGroup}
             >
-              {creatingGroup ? "Création..." : "Créer le groupe"}
+              {creatingGroup ? t("messenger.creatingGroup") : t("messenger.createGroupButton")}
             </button>
           </div>
         )}
@@ -474,26 +492,28 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
     </div>
   );
 
+  const messageTexts = useTranslatedTexts(messages.map((m) => (m.type === "TEXT" ? m.content : null)));
+
   if (!selected) {
     return (
       <div className="messenger-container">
         <div className="card messenger-list" style={{ width: "100%", display: "flex", flexDirection: "column", padding: 0 }}>
           <div style={{ padding: 12, borderBottom: "1px solid var(--border)", display: "flex", gap: 8 }}>
             <input
-              placeholder="Rechercher..."
+              placeholder={t("messenger.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ flex: 1 }}
             />
             <button className="btn btn-primary" onClick={openNewDiscussion} style={{ whiteSpace: "nowrap" }}>
-              + Nouvelle discussion
+              {t("messenger.newDiscussionButton")}
             </button>
           </div>
           <div style={{ overflowY: "auto", flex: 1 }}>
             {filteredGroups.length > 0 && (
               <>
                 <div style={{ padding: "8px 16px", fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                  Groupes
+                  {t("messenger.groups")}
                 </div>
                 {filteredGroups.map((g) => (
                   <div
@@ -511,7 +531,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
                     <Avatar name={g.name} avatar={g.avatar} size={38} />
                     <div>
                       <div style={{ fontWeight: 600 }}>{g.name}</div>
-                      <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>{g.memberCount} membres</div>
+                      <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>{t("messenger.membersCount", { count: g.memberCount })}</div>
                     </div>
                   </div>
                 ))}
@@ -520,7 +540,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
 
             {filteredContacts.length > 0 && (
               <div style={{ padding: "8px 16px", fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                Utilisateurs
+                {t("messenger.usersSection")}
               </div>
             )}
             {filteredContacts.length === 0 && filteredGroups.length === 0 ? (
@@ -574,7 +594,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
               type="button"
               className="btn btn-outline"
               onClick={() => setSelected(null)}
-              title="Retour"
+              title={t("messenger.back")}
               style={{ padding: "4px 10px" }}
             >
               ←
@@ -583,7 +603,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
             {selected.kind === "group" && (
               <div
                 onClick={() => groupHeaderAvatarInputRef.current?.click()}
-                title="Changer la photo du groupe"
+                title={t("messenger.changeGroupPhoto")}
                 style={{ cursor: "pointer", position: "relative", opacity: savingGroupAvatar ? 0.5 : 1 }}
               >
                 <Avatar name={selected.name} avatar={selected.avatar} size={34} />
@@ -599,7 +619,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
             <div>
               <div style={{ fontWeight: 600 }}>{selected.name}</div>
               {selected.kind === "group" && (
-                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{selected.memberCount} membres</div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{t("messenger.membersCount", { count: selected.memberCount })}</div>
               )}
             </div>
           </div>
@@ -608,7 +628,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
               <button
                 type="button"
                 className="btn btn-outline"
-                title="Appel vocal"
+                title={t("messenger.voiceCall")}
                 disabled={callStatus !== "idle"}
                 onClick={() => startCall({ id: selected.id, name: selected.name }, false)}
                 style={{ padding: "6px 10px", display: "flex", alignItems: "center" }}
@@ -618,7 +638,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
               <button
                 type="button"
                 className="btn btn-outline"
-                title="Appel vidéo"
+                title={t("messenger.videoCall")}
                 disabled={callStatus !== "idle"}
                 onClick={() => startCall({ id: selected.id, name: selected.name }, true)}
                 style={{ padding: "6px 10px", display: "flex", alignItems: "center" }}
@@ -632,7 +652,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
               <button
                 type="button"
                 className="btn btn-outline"
-                title="Appel vocal de groupe"
+                title={t("messenger.groupVoiceCall")}
                 disabled={groupCallStatus !== "idle" || callStatus !== "idle"}
                 onClick={() => startGroupCall(selected.id, selected.name, false)}
                 style={{ padding: "6px 10px", display: "flex", alignItems: "center" }}
@@ -642,7 +662,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
               <button
                 type="button"
                 className="btn btn-outline"
-                title="Appel vidéo de groupe"
+                title={t("messenger.groupVideoCall")}
                 disabled={groupCallStatus !== "idle" || callStatus !== "idle"}
                 onClick={() => startGroupCall(selected.id, selected.name, true)}
                 style={{ padding: "6px 10px", display: "flex", alignItems: "center" }}
@@ -653,7 +673,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
           )}
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-          {messages.map((m) => {
+          {messages.map((m, mIdx) => {
             const isMine = m.senderId === user?.id;
             return (
               <div key={m.id} style={{ alignSelf: isMine ? "flex-end" : "flex-start", maxWidth: "70%" }}>
@@ -663,7 +683,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
                 {m.type === "AUDIO" ? (
                   <div
                     style={{
-                      background: isMine ? "var(--primary)" : "#eef0f4",
+                      background: isMine ? "var(--primary)" : "var(--surface-muted)",
                       borderRadius: 12,
                       padding: "8px 12px",
                       display: "flex",
@@ -693,7 +713,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
                       href={m.fileData ?? undefined}
                       download={m.fileName ?? "fichier"}
                       style={{
-                        background: isMine ? "var(--primary)" : "#eef0f4",
+                        background: isMine ? "var(--primary)" : "var(--surface-muted)",
                         color: isMine ? "#fff" : "var(--text)",
                         borderRadius: 12,
                         padding: "8px 12px",
@@ -706,26 +726,26 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
                     >
                       <span style={{ fontSize: "1.3rem" }}>📎</span>
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {m.fileName ?? "Fichier"}
+                        {m.fileName ?? t("messenger.file")}
                       </span>
                     </a>
                   )
                 ) : (
                   <div
                     style={{
-                      background: isMine ? "var(--primary)" : "#eef0f4",
+                      background: isMine ? "var(--primary)" : "var(--surface-muted)",
                       color: isMine ? "#fff" : "var(--text)",
                       borderRadius: 12,
                       padding: "8px 12px",
                     }}
                   >
-                    {m.content}
+                    {messageTexts[mIdx]}
                   </div>
                 )}
                 <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: 2 }}>
-                  {isMine ? "Vous" : selected.kind === "group" ? "" : m.sender.name}{" "}
+                  {isMine ? t("messenger.you") : selected.kind === "group" ? "" : m.sender.name}{" "}
                   {isMine || selected.kind !== "group" ? "— " : ""}
-                  {new Date(m.createdAt).toLocaleString("fr-FR")}
+                  {formatDateTime(m.createdAt, i18n.language)}
                 </div>
               </div>
             );
@@ -745,7 +765,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
         )}
         {sendingFile && (
           <p style={{ padding: "0 12px", margin: "8px 0 0", fontSize: "0.85rem", color: "var(--text-muted)" }}>
-            Envoi du fichier...
+            {t("messenger.sendingFile")}
           </p>
         )}
 
@@ -760,12 +780,12 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
                 display: "inline-block",
               }}
             />
-            <span style={{ flex: 1 }}>Enregistrement... {formatDuration(recordSeconds)}</span>
+            <span style={{ flex: 1 }}>{t("messenger.recording", { duration: formatDuration(recordSeconds) })}</span>
             <button type="button" className="btn btn-outline" onClick={cancelRecording}>
-              Annuler
+              {t("messenger.cancel")}
             </button>
             <button type="button" className="btn btn-primary" onClick={stopRecording}>
-              Envoyer
+              {t("messenger.send")}
             </button>
           </div>
         ) : (
@@ -777,7 +797,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
                   bottom: "100%",
                   left: 12,
                   marginBottom: 8,
-                  background: "#fff",
+                  background: "var(--surface)",
                   border: "1px solid var(--border)",
                   borderRadius: 12,
                   padding: 10,
@@ -814,7 +834,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                background: "#fff",
+                background: "var(--surface)",
                 border: "1px solid var(--border)",
                 borderRadius: 999,
                 padding: "6px 8px 6px 16px",
@@ -822,7 +842,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
             >
               <button
                 type="button"
-                title="Joindre un fichier"
+                title={t("messenger.attachFile")}
                 onClick={() => attachmentInputRef.current?.click()}
                 disabled={sendingFile}
                 style={{
@@ -859,7 +879,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
               </button>
               <input
                 style={{ flex: 1, border: "none", outline: "none", background: "transparent" }}
-                placeholder="Entrez un message"
+                placeholder={t("messenger.messagePlaceholder")}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 onFocus={() => setShowEmojiPicker(false)}
@@ -869,7 +889,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
                 <button
                   type="submit"
                   disabled={sendingAudio}
-                  title="Envoyer"
+                  title={t("messenger.send")}
                   style={{
                     border: "none",
                     background: "var(--primary)",
@@ -890,7 +910,7 @@ export default function Messenger({ emptyContactsLabel }: { emptyContactsLabel: 
               ) : (
                 <button
                   type="button"
-                  title="Message vocal"
+                  title={t("messenger.voiceMessage")}
                   onClick={startRecording}
                   disabled={sendingAudio}
                   style={{

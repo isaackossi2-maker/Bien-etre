@@ -1,5 +1,7 @@
+import "express-async-errors";
 import express from "express";
 import cors from "cors";
+import { Prisma } from "@prisma/client";
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/users";
 import examRoutes from "./routes/exams";
@@ -10,6 +12,8 @@ import dashboardRoutes from "./routes/dashboard";
 import messageRoutes from "./routes/messages";
 import postRoutes from "./routes/posts";
 import groupRoutes from "./routes/groups";
+import meetingRoutes from "./routes/meetings";
+import translateRoutes from "./routes/translate";
 
 export function createApp() {
   const app = express();
@@ -30,12 +34,25 @@ export function createApp() {
   app.use("/api/messages", messageRoutes);
   app.use("/api/posts", postRoutes);
   app.use("/api/groups", groupRoutes);
+  app.use("/api/meetings", meetingRoutes);
+  app.use("/api/translate", translateRoutes);
 
   app.use((req, res) => {
     res.status(404).json({ message: `Route non trouvée: ${req.method} ${req.path}` });
   });
 
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    // express-async-errors route désormais ici les rejections des handlers async (Express 4 ne
+    // le fait pas nativement) : sans quoi une erreur Prisma en cours de requête laissait le
+    // client bloqué indéfiniment sans réponse au lieu d'un code d'erreur propre.
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      if (err.code === "P2025") {
+        return res.status(404).json({ message: "Ressource introuvable" });
+      }
+      if (err.code === "P2002") {
+        return res.status(409).json({ message: "Cette ressource existe déjà" });
+      }
+    }
     console.error(err);
     res.status(500).json({ message: "Erreur serveur interne" });
   });

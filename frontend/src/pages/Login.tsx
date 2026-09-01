@@ -1,8 +1,10 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Login() {
+  const { t } = useTranslation();
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -22,7 +24,7 @@ export default function Login() {
       const loggedInUser = await login(email, password);
       navigate(loggedInUser.role === "ADMIN" ? "/admin" : "/app");
     } catch {
-      setError("Email ou mot de passe incorrect");
+      setError(t("login.error"));
     } finally {
       setLoading(false);
     }
@@ -31,24 +33,24 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1>Connexion</h1>
-        <p>Accédez à votre espace bien-être</p>
+        <h1>{t("login.title")}</h1>
+        <p>{t("login.subtitle")}</p>
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
-            Email
+            {t("login.email")}
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </label>
           <label>
-            Mot de passe
+            {t("login.password")}
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
           {error && <span className="error-text">{error}</span>}
           <button className="btn btn-primary" type="submit" disabled={loading}>
-            {loading ? "Connexion..." : "Se connecter"}
+            {loading ? t("login.submitting") : t("login.submit")}
           </button>
         </form>
         <p style={{ fontSize: "0.85rem", marginTop: 16 }}>
-          Pas encore de compte ? <Link to="/register">S'inscrire</Link>
+          {t("login.noAccount")} <Link to="/register">{t("login.registerLink")}</Link>
         </p>
       </div>
     </div>

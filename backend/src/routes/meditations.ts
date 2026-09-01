@@ -2,7 +2,9 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { authenticate, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
 import { logAction } from "../utils/log";
+import { userSummarySelect } from "../utils/selects";
 
 const router = Router();
 router.use(authenticate);
@@ -28,22 +30,14 @@ const meditationSchema = z.object({
   duration: z.number().int().positive().optional(),
 });
 
-router.post("/", requireRole("ADMIN"), async (req, res) => {
-  const parsed = meditationSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: "Données invalides", errors: parsed.error.flatten() });
-  }
-  const meditation = await prisma.meditation.create({ data: parsed.data });
+router.post("/", requireRole("ADMIN"), validateBody(meditationSchema), async (req, res) => {
+  const meditation = await prisma.meditation.create({ data: req.body as z.infer<typeof meditationSchema> });
   await logAction(req.user!.id, "MEDITATION_CREATE", `Création de la méditation ${meditation.title}`);
   res.status(201).json(meditation);
 });
 
-router.put("/:id", requireRole("ADMIN"), async (req, res) => {
-  const parsed = meditationSchema.partial().safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: "Données invalides", errors: parsed.error.flatten() });
-  }
-  const meditation = await prisma.meditation.update({ where: { id: req.params.id }, data: parsed.data });
+router.put("/:id", requireRole("ADMIN"), validateBody(meditationSchema.partial()), async (req, res) => {
+  const meditation = await prisma.meditation.update({ where: { id: req.params.id }, data: req.body });
   await logAction(req.user!.id, "MEDITATION_UPDATE", `Modification de la méditation ${meditation.title}`);
   res.json(meditation);
 });
@@ -72,7 +66,7 @@ router.get("/:id/views", requireRole("ADMIN"), async (req, res) => {
   const views = await prisma.meditationView.findMany({
     where: { meditationId: req.params.id },
     orderBy: { viewedAt: "desc" },
-    include: { user: { select: { id: true, name: true, email: true } } },
+    include: { user: { select: userSummarySelect } },
   });
   res.json(views);
 });

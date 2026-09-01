@@ -1,7 +1,9 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../../api/client";
+import { useTranslation } from "react-i18next";
 import { Exam } from "../../types";
+import { useCrudList } from "../../hooks/useCrudList";
+import { useTranslatedTexts } from "../../i18n/useTranslatedContent";
 
 interface ExamFormState {
   title: string;
@@ -14,16 +16,13 @@ interface ExamFormState {
 const emptyForm: ExamFormState = { title: "", description: "", duration: "", maxAttempts: "", isActive: true };
 
 export default function AdminExams() {
-  const [exams, setExams] = useState<Exam[]>([]);
+  const { t } = useTranslation();
+  const { items: exams, create, update, remove } = useCrudList<Exam>("/exams");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ExamFormState>(emptyForm);
-
-  function load() {
-    api.get<Exam[]>("/exams").then((res) => setExams(res.data));
-  }
-
-  useEffect(load, []);
+  const examTitles = useTranslatedTexts(exams.map((e) => e.title));
+  const examDescriptions = useTranslatedTexts(exams.map((e) => e.description));
 
   function startCreate() {
     setEditingId(null);
@@ -53,33 +52,30 @@ export default function AdminExams() {
       isActive: form.isActive,
     };
     if (editingId) {
-      await api.put(`/exams/${editingId}`, payload);
+      await update(editingId, payload);
     } else {
-      await api.post("/exams", payload);
+      await create(payload);
     }
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm);
-    load();
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Supprimer cet examen ? Les questions associées seront aussi supprimées.")) return;
-    await api.delete(`/exams/${id}`);
-    load();
+    if (!confirm(t("adminExams.confirmDelete"))) return;
+    await remove(id);
   }
 
   async function toggleActive(exam: Exam) {
-    await api.put(`/exams/${exam.id}`, { isActive: !exam.isActive });
-    load();
+    await update(exam.id, { isActive: !exam.isActive });
   }
 
   return (
     <div>
       <div className="page-header">
-        <h1>Examens</h1>
+        <h1>{t("adminExams.title")}</h1>
         <button className="btn btn-primary" onClick={() => (showForm ? setShowForm(false) : startCreate())}>
-          {showForm ? "Annuler" : "Nouvel examen"}
+          {showForm ? t("common.cancel") : t("adminExams.newExam")}
         </button>
       </div>
 
@@ -87,11 +83,11 @@ export default function AdminExams() {
         <div className="card" style={{ marginBottom: 20 }}>
           <form className="form-grid" onSubmit={handleSubmit}>
             <label>
-              Titre
+              {t("adminExams.examTitle")}
               <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
             </label>
             <label>
-              Description
+              {t("adminExams.description")}
               <textarea
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -99,7 +95,7 @@ export default function AdminExams() {
               />
             </label>
             <label>
-              Durée (minutes, optionnel)
+              {t("adminExams.durationOptional")}
               <input
                 type="number"
                 min={1}
@@ -108,7 +104,7 @@ export default function AdminExams() {
               />
             </label>
             <label>
-              Tentatives autorisées par utilisateur (vide = illimité)
+              {t("adminExams.maxAttemptsLabel")}
               <input
                 type="number"
                 min={1}
@@ -122,55 +118,55 @@ export default function AdminExams() {
                 checked={form.isActive}
                 onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
               />
-              Accessible aux utilisateurs
+              {t("adminExams.accessibleToUsers")}
             </label>
             <button className="btn btn-primary" type="submit">
-              {editingId ? "Enregistrer" : "Créer"}
+              {editingId ? t("common.save") : t("common.create")}
             </button>
           </form>
         </div>
       )}
 
       {exams.length === 0 ? (
-        <p className="empty-state">Aucun examen pour le moment.</p>
+        <p className="empty-state">{t("adminExams.noExams")}</p>
       ) : (
         <table>
           <thead>
             <tr>
-              <th>Titre</th>
-              <th>Description</th>
-              <th>Questions</th>
-              <th>Durée</th>
-              <th>Tentatives max.</th>
-              <th>Statut</th>
+              <th>{t("adminExams.examTitle")}</th>
+              <th>{t("adminExams.description")}</th>
+              <th>{t("adminExams.questions")}</th>
+              <th>{t("adminExams.duration")}</th>
+              <th>{t("adminExams.maxAttempts")}</th>
+              <th>{t("adminExams.status")}</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {exams.map((ex) => (
+            {exams.map((ex, idx) => (
               <tr key={ex.id}>
-                <td>{ex.title}</td>
-                <td>{ex.description}</td>
+                <td>{examTitles[idx]}</td>
+                <td>{examDescriptions[idx]}</td>
                 <td>{ex._count?.questions ?? 0}</td>
-                <td>{ex.duration ? `${ex.duration} min` : "—"}</td>
-                <td>{ex.maxAttempts ?? "Illimité"}</td>
+                <td>{ex.duration ? `${ex.duration} min` : t("common.none")}</td>
+                <td>{ex.maxAttempts ?? t("common.unlimited")}</td>
                 <td>
                   <span className={`badge ${ex.isActive ? "badge-user" : "badge-admin"}`}>
-                    {ex.isActive ? "Accessible" : "Inaccessible"}
+                    {ex.isActive ? t("adminExams.accessible") : t("adminExams.inaccessible")}
                   </span>
                 </td>
                 <td className="list-actions">
                   <Link className="btn btn-primary" to={`/admin/exams/${ex.id}/questions`}>
-                    Gérer les questions
+                    {t("adminExams.manageQuestions")}
                   </Link>
                   <button className="btn btn-outline" onClick={() => startEdit(ex)}>
-                    Modifier
+                    {t("common.edit")}
                   </button>
                   <button className="btn btn-outline" onClick={() => toggleActive(ex)}>
-                    {ex.isActive ? "Rendre inaccessible" : "Rendre accessible"}
+                    {ex.isActive ? t("adminExams.makeInaccessible") : t("adminExams.makeAccessible")}
                   </button>
                   <button className="btn btn-danger" onClick={() => handleDelete(ex.id)}>
-                    Supprimer
+                    {t("common.delete")}
                   </button>
                 </td>
               </tr>

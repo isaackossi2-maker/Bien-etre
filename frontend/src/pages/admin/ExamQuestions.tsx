@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { Exam, Question, QuestionType } from "../../types";
+import { useTranslatedText, useTranslatedTexts } from "../../i18n/useTranslatedContent";
 
 interface AnswerDraft {
   text: string;
@@ -14,6 +16,7 @@ const emptyAnswers = (): AnswerDraft[] => [
 ];
 
 export default function AdminExamQuestions() {
+  const { t } = useTranslation();
   const { id: examId } = useParams<{ id: string }>();
   const [exam, setExam] = useState<Exam | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -23,6 +26,9 @@ export default function AdminExamQuestions() {
   const [type, setType] = useState<QuestionType>("SINGLE");
   const [answers, setAnswers] = useState<AnswerDraft[]>(emptyAnswers());
   const [error, setError] = useState<string | null>(null);
+  const examTitle = useTranslatedText(exam?.title);
+  const questionTexts = useTranslatedTexts(questions.map((q) => q.text));
+  const answerTexts = useTranslatedTexts(questions.flatMap((q) => q.answers.map((a) => a.text)));
 
   function load() {
     if (!examId) return;
@@ -86,15 +92,15 @@ export default function AdminExamQuestions() {
     e.preventDefault();
     setError(null);
     if (answers.some((a) => !a.text.trim())) {
-      setError("Toutes les réponses doivent avoir un texte");
+      setError(t("adminExamQuestions.errorAllAnswersText"));
       return;
     }
     if (!answers.some((a) => a.isCorrect)) {
-      setError("Au moins une réponse correcte doit être sélectionnée");
+      setError(t("adminExamQuestions.errorAtLeastOneCorrect"));
       return;
     }
     if (type === "SINGLE" && answers.filter((a) => a.isCorrect).length !== 1) {
-      setError("Une question à choix unique doit avoir exactement une bonne réponse");
+      setError(t("adminExamQuestions.errorSingleChoiceOneCorrect"));
       return;
     }
     try {
@@ -107,12 +113,12 @@ export default function AdminExamQuestions() {
       setEditingId(null);
       load();
     } catch (err: any) {
-      setError(err.response?.data?.message ?? "Erreur lors de l'enregistrement");
+      setError(err.response?.data?.message ?? t("adminExamQuestions.saveError"));
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Supprimer cette question ?")) return;
+    if (!confirm(t("adminExamQuestions.confirmDelete"))) return;
     await api.delete(`/questions/${id}`);
     load();
   }
@@ -122,12 +128,12 @@ export default function AdminExamQuestions() {
       <div className="page-header">
         <div>
           <Link to="/admin/exams" style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-            ← Retour aux examens
+            {t("adminExamQuestions.backToExams")}
           </Link>
-          <h1 style={{ marginTop: 4 }}>Questions — {exam?.title}</h1>
+          <h1 style={{ marginTop: 4 }}>{t("adminExamQuestions.title", { examTitle })}</h1>
         </div>
         <button className="btn btn-primary" onClick={() => (showForm ? setShowForm(false) : startCreate())}>
-          {showForm ? "Annuler" : "Nouvelle question"}
+          {showForm ? t("common.cancel") : t("adminExamQuestions.newQuestion")}
         </button>
       </div>
 
@@ -135,20 +141,20 @@ export default function AdminExamQuestions() {
         <div className="card" style={{ marginBottom: 20 }}>
           <form className="form-grid" style={{ maxWidth: 600 }} onSubmit={handleSubmit}>
             <label>
-              Question
+              {t("adminExamQuestions.question")}
               <input value={text} onChange={(e) => setText(e.target.value)} required />
             </label>
             <label>
-              Type de question
+              {t("adminExamQuestions.questionType")}
               <select value={type} onChange={(e) => changeType(e.target.value as QuestionType)}>
-                <option value="SINGLE">Choix unique</option>
-                <option value="MULTIPLE">QCM (choix multiples)</option>
+                <option value="SINGLE">{t("adminExamQuestions.singleChoice")}</option>
+                <option value="MULTIPLE">{t("adminExamQuestions.multipleChoice")}</option>
               </select>
             </label>
 
             <div>
               <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                Réponses ({type === "SINGLE" ? "sélectionnez la bonne réponse" : "cochez toutes les bonnes réponses"})
+                {type === "SINGLE" ? t("adminExamQuestions.answersSingle") : t("adminExamQuestions.answersMultiple")}
               </span>
               {answers.map((a, i) => (
                 <div key={i} className="inline-form" style={{ marginTop: 8 }}>
@@ -157,74 +163,77 @@ export default function AdminExamQuestions() {
                     name="correct"
                     checked={a.isCorrect}
                     onChange={() => toggleCorrect(i)}
-                    title="Réponse correcte"
+                    title={t("adminExamQuestions.correctAnswerTitle")}
                   />
                   <input
                     style={{ flex: 1 }}
-                    placeholder={`Réponse ${i + 1}`}
+                    placeholder={t("adminExamQuestions.answerPlaceholder", { n: i + 1 })}
                     value={a.text}
                     onChange={(e) => updateAnswer(i, { text: e.target.value })}
                     required
                   />
                   {answers.length > 2 && (
                     <button type="button" className="btn btn-outline" onClick={() => removeAnswer(i)}>
-                      Retirer
+                      {t("common.remove")}
                     </button>
                   )}
                 </div>
               ))}
               <button type="button" className="btn btn-outline" style={{ marginTop: 8 }} onClick={addAnswer}>
-                + Ajouter une réponse
+                {t("adminExamQuestions.addAnswer")}
               </button>
             </div>
 
             {error && <span className="error-text">{error}</span>}
             <button className="btn btn-primary" type="submit">
-              {editingId ? "Enregistrer" : "Créer la question"}
+              {editingId ? t("common.save") : t("adminExamQuestions.createQuestion")}
             </button>
           </form>
         </div>
       )}
 
       {questions.length === 0 ? (
-        <p className="empty-state">Aucune question pour le moment. Ajoutez-en une pour permettre aux utilisateurs de composer cet examen.</p>
+        <p className="empty-state">{t("adminExamQuestions.noQuestions")}</p>
       ) : (
         <table>
           <thead>
             <tr>
-              <th>Question</th>
-              <th>Type</th>
-              <th>Réponses</th>
+              <th>{t("adminExamQuestions.question")}</th>
+              <th>{t("adminExamQuestions.questionType")}</th>
+              <th>{t("adminExamQuestions.answers")}</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {questions.map((q) => (
+            {questions.map((q, qIdx) => {
+              const answerStart = questions.slice(0, qIdx).reduce((sum, prev) => sum + prev.answers.length, 0);
+              return (
               <tr key={q.id}>
-                <td>{q.text}</td>
+                <td>{questionTexts[qIdx]}</td>
                 <td>
                   <span className={`badge ${q.type === "MULTIPLE" ? "badge-admin" : "badge-user"}`}>
-                    {q.type === "MULTIPLE" ? "QCM" : "Choix unique"}
+                    {q.type === "MULTIPLE" ? t("adminExamQuestions.mcq") : t("adminExamQuestions.singleChoice")}
                   </span>
                 </td>
                 <td>
-                  {q.answers.map((a) => (
+                  {q.answers.map((a, aIdx) => (
                     <div key={a.id} style={{ color: a.isCorrect ? "var(--success)" : "inherit" }}>
                       {a.isCorrect ? "✓ " : ""}
-                      {a.text}
+                      {answerTexts[answerStart + aIdx]}
                     </div>
                   ))}
                 </td>
                 <td className="list-actions">
                   <button className="btn btn-outline" onClick={() => startEdit(q)}>
-                    Modifier
+                    {t("common.edit")}
                   </button>
                   <button className="btn btn-danger" onClick={() => handleDelete(q.id)}>
-                    Supprimer
+                    {t("common.delete")}
                   </button>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       )}

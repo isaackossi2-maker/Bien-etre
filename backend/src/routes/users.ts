@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { authenticate, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
 import { logAction } from "../utils/log";
 
 const router = Router();
@@ -23,12 +24,8 @@ const createSchema = z.object({
   role: z.enum(["ADMIN", "USER"]).default("USER"),
 });
 
-router.post("/", async (req, res) => {
-  const parsed = createSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: "Données invalides", errors: parsed.error.flatten() });
-  }
-  const { email, password, name, role } = parsed.data;
+router.post("/", validateBody(createSchema), async (req, res) => {
+  const { email, password, name, role } = req.body as z.infer<typeof createSchema>;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -50,14 +47,18 @@ const updateSchema = z.object({
   password: z.string().min(6).optional(),
 });
 
-router.put("/:id", async (req, res) => {
-  const parsed = updateSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: "Données invalides", errors: parsed.error.flatten() });
+router.put("/:id", validateBody(updateSchema), async (req, res) => {
+  const parsedData = req.body as z.infer<typeof updateSchema>;
+
+  // Un admin qui se rétrograde lui-même via cette table (au lieu de sa page profil) pourrait
+  // se retrouver instantanément sans accès admin en pleine session, sans aucun avertissement.
+  if (req.params.id === req.user!.id && parsedData.role && parsedData.role !== "ADMIN") {
+    return res.status(400).json({ message: "Vous ne pouvez pas modifier votre propre rôle" });
   }
-  const data: Record<string, unknown> = { ...parsed.data };
-  if (parsed.data.password) {
-    data.password = await bcrypt.hash(parsed.data.password, 10);
+
+  const data: Record<string, unknown> = { ...parsedData };
+  if (parsedData.password) {
+    data.password = await bcrypt.hash(parsedData.password, 10);
   }
 
   const user = await prisma.user.update({
@@ -70,6 +71,9 @@ router.put("/:id", async (req, res) => {
 });
 
 router.delete("/:id", async (req, res) => {
+  if (req.params.id === req.user!.id) {
+    return res.status(400).json({ message: "Vous ne pouvez pas supprimer votre propre compte" });
+  }
   const user = await prisma.user.delete({ where: { id: req.params.id } });
   await logAction(req.user!.id, "USER_DELETE", `Suppression de l'utilisateur ${user.email}`);
   res.status(204).send();

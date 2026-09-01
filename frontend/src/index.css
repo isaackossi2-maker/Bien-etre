@@ -1,17 +1,70 @@
 :root {
   --bg: #f5f6fa;
   --surface: #ffffff;
+  --surface-muted: #fafbfc;
   --border: #e2e5ec;
   --text: #1c2130;
   --text-muted: #6b7280;
   --primary: #4f46e5;
   --primary-hover: #4338ca;
   --danger: #dc2626;
+  --danger-bg: #fee2e2;
+  --danger-bg-hover: #fecaca;
   --success: #16a34a;
   --sidebar-bg: #ffffff;
   --sidebar-text: #4b5165;
   --sidebar-active: #4f46e5;
+  --overlay-bg: rgba(245, 246, 250, 0.97);
+  --login-gradient: linear-gradient(135deg, #eef0ff, #f5f6fa);
+  --shadow-color: rgba(0, 0, 0, 0.25);
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* Thème sombre suivant les préférences système, tant que l'utilisateur n'a pas
+   fait de choix explicite (data-theme absent = mode "système"). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161f;
+    --surface: #1c1f2b;
+    --surface-muted: #232734;
+    --border: #333850;
+    --text: #e7e9f0;
+    --text-muted: #9096ab;
+    --primary: #6366f1;
+    --primary-hover: #7c7ff0;
+    --danger: #f87171;
+    --danger-bg: #4c1d1d;
+    --danger-bg-hover: #5c2323;
+    --success: #4ade80;
+    --sidebar-bg: #1a1d28;
+    --sidebar-text: #b0b5c9;
+    --sidebar-active: #6366f1;
+    --overlay-bg: rgba(15, 16, 24, 0.97);
+    --login-gradient: linear-gradient(135deg, #1a1d2e, #14161f);
+    --shadow-color: rgba(0, 0, 0, 0.55);
+  }
+}
+
+/* Thème sombre explicite (choisi dans le profil), quel que soit l'OS. */
+:root[data-theme="dark"] {
+  --bg: #14161f;
+  --surface: #1c1f2b;
+  --surface-muted: #232734;
+  --border: #333850;
+  --text: #e7e9f0;
+  --text-muted: #9096ab;
+  --primary: #6366f1;
+  --primary-hover: #7c7ff0;
+  --danger: #f87171;
+  --danger-bg: #4c1d1d;
+  --danger-bg-hover: #5c2323;
+  --success: #4ade80;
+  --sidebar-bg: #1a1d28;
+  --sidebar-text: #b0b5c9;
+  --sidebar-active: #6366f1;
+  --overlay-bg: rgba(15, 16, 24, 0.97);
+  --login-gradient: linear-gradient(135deg, #1a1d2e, #14161f);
+  --shadow-color: rgba(0, 0, 0, 0.55);
 }
 
 * {
@@ -128,12 +181,12 @@ button {
 }
 
 .btn-danger {
-  background: #fee2e2;
+  background: var(--danger-bg);
   color: var(--danger);
 }
 
 .btn-danger:hover {
-  background: #fecaca;
+  background: var(--danger-bg-hover);
 }
 
 .btn-outline {
@@ -144,7 +197,10 @@ button {
 
 .main-content {
   flex: 1;
-  padding: 28px 32px;
+  /* Marge du haut relevée pour laisser la place au raccourci thème/langue
+     (position fixe, coin supérieur droit) sans qu'il chevauche le bouton
+     d'action du page-header. */
+  padding: 64px 32px 28px;
   overflow-y: auto;
 }
 
@@ -214,7 +270,7 @@ th, td {
 }
 
 th {
-  background: #fafbfc;
+  background: var(--surface-muted);
   color: var(--text-muted);
   font-weight: 600;
   font-size: 0.8rem;
@@ -280,7 +336,7 @@ input, textarea, select {
   border-radius: 8px;
   font-size: 0.9rem;
   font-family: inherit;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
 }
 
@@ -289,16 +345,16 @@ input, textarea, select {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #eef0ff, #f5f6fa);
+  background: var(--login-gradient);
 }
 
 .login-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: 16px;
   padding: 36px;
   width: 360px;
   max-width: 90vw;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 20px 50px var(--shadow-color);
 }
 
 .login-card h1 {
@@ -320,7 +376,7 @@ input, textarea, select {
 .hint-box {
   margin-top: 16px;
   padding: 12px;
-  background: #f5f6fa;
+  background: var(--surface-muted);
   border-radius: 8px;
   font-size: 0.78rem;
   color: var(--text-muted);
@@ -344,6 +400,51 @@ input, textarea, select {
   gap: 10px;
   flex-wrap: wrap;
   align-items: flex-end;
+}
+
+/* ---------- Raccourci thème/langue (coin supérieur droit) ---------- */
+
+.quick-settings {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1300;
+}
+
+.quick-settings-toggle {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  color: var(--text);
+}
+
+.quick-settings-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+
+.quick-settings-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 /* ---------- Responsive (mobile) ---------- */
@@ -433,6 +534,20 @@ input, textarea, select {
     gap: 10px;
   }
 
+  .quick-settings {
+    top: 8px;
+    right: 52px;
+  }
+
+  .quick-settings-toggle {
+    padding: 5px 9px;
+    font-size: 0.8rem;
+  }
+
+  .quick-settings-panel {
+    width: min(260px, calc(100vw - 24px));
+  }
+
   table {
     display: block;
     overflow-x: auto;
@@ -460,5 +575,425 @@ input, textarea, select {
 @media (max-width: 700px) {
   .messenger-container {
     height: calc(100vh - 130px);
+  }
+}
+
+/* ---------- Salle de réunion (style visio, toujours en sombre) ---------- */
+
+.meet-room {
+  position: fixed;
+  inset: 0;
+  background: #202124;
+  color: #e8eaed;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.meet-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  font-size: 0.85rem;
+  color: #e8eaed;
+  flex-shrink: 0;
+}
+
+.meet-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.meet-icon-btn {
+  background: transparent;
+  border: none;
+  color: #e8eaed;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1rem;
+}
+
+.meet-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.meet-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  gap: 12px;
+}
+
+.meet-grid {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  align-content: center;
+  justify-content: center;
+}
+
+.meet-tile {
+  position: relative;
+  background: #3c4043;
+  border-radius: 12px;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 16 / 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.meet-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.meet-tile-avatar {
+  width: 30%;
+  aspect-ratio: 1;
+  min-width: 48px;
+  max-width: 96px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.6rem;
+}
+
+.meet-tile-label {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meet-tile-badges {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+}
+
+.meet-tile-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+.meet-tile-reaction {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 1.6rem;
+  animation: meet-reaction-pop 3s ease-out forwards;
+}
+
+@keyframes meet-reaction-pop {
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    transform: translateY(-6px) scale(1.1);
+    opacity: 1;
+  }
+  80% {
+    transform: translateY(-10px) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-24px) scale(0.9);
+    opacity: 0;
+  }
+}
+
+.meet-spotlight {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  gap: 10px;
+}
+
+.meet-spotlight-main {
+  flex: 1;
+  min-height: 0;
+}
+
+.meet-spotlight-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  padding-bottom: 2px;
+}
+
+.meet-spotlight-strip .meet-tile {
+  width: 140px;
+  height: 90px;
+  flex-shrink: 0;
+  aspect-ratio: auto;
+}
+
+.meet-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 16px 20px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.meet-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #3c4043;
+  border-radius: 999px;
+  padding: 8px 10px;
+}
+
+.meet-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #e8eaed;
+  font-size: 1.15rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.meet-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.meet-btn-off {
+  background: #5f6368;
+}
+
+.meet-btn-off:hover {
+  background: #6e7276;
+}
+
+.meet-btn-active {
+  background: var(--primary);
+}
+
+.meet-btn-active:hover {
+  background: var(--primary-hover);
+}
+
+.meet-btn-hangup {
+  width: 56px;
+  border-radius: 28px;
+  background: #ea4335;
+}
+
+.meet-btn-hangup:hover {
+  background: #d33b2c;
+}
+
+.meet-side-icons {
+  position: absolute;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.meet-side-icons .meet-btn {
+  background: #3c4043;
+  position: relative;
+}
+
+.meet-reaction-picker {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #3c4043;
+  border-radius: 999px;
+  padding: 6px 10px;
+  display: flex;
+  gap: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.meet-reaction-picker button {
+  border: none;
+  background: transparent;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.meet-reaction-picker button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.meet-panel {
+  width: 320px;
+  max-width: 90vw;
+  background: #292a2d;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.meet-panel-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.meet-panel-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #9aa0a6;
+  padding: 14px 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+}
+
+.meet-panel-tab.active {
+  color: #e8eaed;
+  border-bottom-color: var(--primary);
+}
+
+.meet-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+
+.meet-chat-message {
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+
+.meet-chat-message .meet-chat-name {
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: #9aa0a6;
+  margin-bottom: 2px;
+}
+
+.meet-chat-message .meet-chat-bubble {
+  background: #3c4043;
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: inline-block;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.meet-chat-form {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.meet-chat-form input {
+  flex: 1;
+  background: #3c4043;
+  border: 1px solid transparent;
+  color: #e8eaed;
+  border-radius: 999px;
+  padding: 9px 14px;
+}
+
+.meet-chat-form button {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.meet-participant-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 0.88rem;
+}
+
+.meet-participant-row .meet-tile-avatar {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 700px) {
+  .meet-panel {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    max-width: none;
+    z-index: 10;
+  }
+
+  .meet-toolbar {
+    gap: 4px;
+    padding: 6px 8px;
+  }
+
+  .meet-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 1rem;
+  }
+
+  .meet-side-icons {
+    right: 8px;
+  }
+
+  .meet-topbar {
+    padding: 10px 12px;
+    font-size: 0.75rem;
   }
 }

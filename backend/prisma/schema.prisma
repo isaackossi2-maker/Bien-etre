@@ -43,6 +43,8 @@ model User {
   createdGroups    Group[]        @relation("GroupCreator")
   groupMemberships GroupMember[]
   groupMessages    GroupMessage[] @relation("GroupMessageSender")
+  createdMeetings  Meeting[]      @relation("MeetingCreator")
+  meetingJoins     MeetingParticipant[]
 }
 
 model Exam {
@@ -236,6 +238,43 @@ model GroupMessage {
   fileName      String?
   fileMimeType  String?
   createdAt     DateTime    @default(now())
+}
+
+// Réunion ad-hoc partageable par lien : n'importe quel utilisateur connecté
+// disposant du lien peut la rejoindre (pas de liste de membres comme Group).
+model Meeting {
+  id           String               @id @default(uuid())
+  title        String
+  createdById  String
+  createdBy    User                 @relation("MeetingCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt    DateTime             @default(now())
+  endedAt      DateTime?
+  participants MeetingParticipant[]
+}
+
+// Trace de passage : qui a effectivement rejoint quelle réunion, pour pouvoir
+// distinguer les réunions manquées (terminées, jamais rejointes) des autres.
+model MeetingParticipant {
+  id        String   @id @default(uuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+
+  @@unique([meetingId, userId])
+}
+
+// Cache des traductions à la volée (LibreTranslate) : évite de re-traduire un
+// même texte à chaque affichage. Clé = hash du texte source + langue cible.
+model TranslationCache {
+  id             String   @id @default(uuid())
+  sourceHash     String
+  targetLang     String
+  translatedText String   @db.Text
+  createdAt      DateTime @default(now())
+
+  @@unique([sourceHash, targetLang])
 }
 
 model Log {

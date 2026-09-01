@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { authenticate } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
 import { logAction } from "../utils/log";
 
 const router = Router();
@@ -50,17 +51,14 @@ const createGroupSchema = z.object({
   avatar: z.string().nullable().optional(),
 });
 
-router.post("/", async (req, res) => {
-  const parsed = createGroupSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: "Données invalides", errors: parsed.error.flatten() });
-  }
-  const memberIds = Array.from(new Set([...parsed.data.memberIds, req.user!.id]));
+router.post("/", validateBody(createGroupSchema), async (req, res) => {
+  const data = req.body as z.infer<typeof createGroupSchema>;
+  const memberIds = Array.from(new Set([...data.memberIds, req.user!.id]));
 
   const group = await prisma.group.create({
     data: {
-      name: parsed.data.name,
-      avatar: parsed.data.avatar ?? null,
+      name: data.name,
+      avatar: data.avatar ?? null,
       createdById: req.user!.id,
       members: { create: memberIds.map((userId) => ({ userId })) },
     },
@@ -89,17 +87,13 @@ const updateGroupSchema = z.object({
   avatar: z.string().nullable().optional(),
 });
 
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", validateBody(updateGroupSchema), async (req, res) => {
   if (!(await requireMember(req.params.id, req.user!.id))) {
     return res.status(403).json({ message: "Accès refusé" });
   }
-  const parsed = updateGroupSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: "Données invalides", errors: parsed.error.flatten() });
-  }
   const group = await prisma.group.update({
     where: { id: req.params.id },
-    data: { avatar: parsed.data.avatar },
+    data: { avatar: (req.body as z.infer<typeof updateGroupSchema>).avatar },
   });
   res.json({ id: group.id, avatar: group.avatar });
 });
@@ -129,28 +123,25 @@ const groupMessageSchema = z
     message: "Le message doit contenir du texte, un audio ou un fichier",
   });
 
-router.post("/:id/messages", async (req, res) => {
+router.post("/:id/messages", validateBody(groupMessageSchema), async (req, res) => {
   if (!(await requireMember(req.params.id, req.user!.id))) {
     return res.status(403).json({ message: "Accès refusé" });
   }
-  const parsed = groupMessageSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: "Données invalides", errors: parsed.error.flatten() });
-  }
+  const data = req.body as z.infer<typeof groupMessageSchema>;
 
-  const isAudio = !!parsed.data.audioData;
-  const isFile = !isAudio && !!parsed.data.fileData;
+  const isAudio = !!data.audioData;
+  const isFile = !isAudio && !!data.fileData;
   const message = await prisma.groupMessage.create({
     data: {
       groupId: req.params.id,
       senderId: req.user!.id,
       type: isAudio ? "AUDIO" : isFile ? "FILE" : "TEXT",
-      content: isAudio || isFile ? null : parsed.data.content,
-      audioData: isAudio ? parsed.data.audioData : null,
-      audioDuration: isAudio ? parsed.data.audioDuration : null,
-      fileData: isFile ? parsed.data.fileData : null,
-      fileName: isFile ? parsed.data.fileName : null,
-      fileMimeType: isFile ? parsed.data.fileMimeType : null,
+      content: isAudio || isFile ? null : data.content,
+      audioData: isAudio ? data.audioData : null,
+      audioDuration: isAudio ? data.audioDuration : null,
+      fileData: isFile ? data.fileData : null,
+      fileName: isFile ? data.fileName : null,
+      fileMimeType: isFile ? data.fileMimeType : null,
     },
     include: { sender: { select: { id: true, name: true, role: true, avatar: true } } },
   });

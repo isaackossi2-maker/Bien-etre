@@ -2,16 +2,23 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { authenticate, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
 import { logAction } from "../utils/log";
 
 const router = Router();
 router.use(authenticate);
 
 // Liste des questions (banque de questions), avec leurs réponses. Filtrable par examen.
+// Un non-admin ne doit voir que les questions d'examens publiés (même règle que GET /exams/:id),
+// sans quoi le contenu d'un examen encore en brouillon fuiterait avant sa mise en accessible.
 router.get("/", async (req, res) => {
   const examId = typeof req.query.examId === "string" ? req.query.examId : undefined;
+  const isAdmin = req.user!.role === "ADMIN";
   const questions = await prisma.question.findMany({
-    where: examId ? { examId } : undefined,
+    where: {
+      ...(examId ? { examId } : {}),
+      ...(isAdmin ? {} : { exam: { isActive: true } }),
+    },
     orderBy: [{ examId: "asc" }, { order: "asc" }],
     include: {
       answers: true,
@@ -19,7 +26,7 @@ router.get("/", async (req, res) => {
     },
   });
 
-  if (req.user!.role !== "ADMIN") {
+  if (!isAdmin) {
     questions.forEach((q) => q.answers.forEach((a) => ((a as { isCorrect: boolean }).isCorrect = false)));
   }
   res.json(questions);
@@ -51,12 +58,8 @@ const questionSchema = z.object({
   answers: z.array(answerInput).min(2),
 });
 
-router.post("/", requireRole("ADMIN"), async (req, res) => {
-  const parsed = questionSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: "Données invalides", errors: parsed.error.flatten() });
-  }
-  const { examId, text, type, order, answers } = parsed.data;
+router.post("/", requireRole("ADMIN"), validateBody(questionSchema), async (req, res) => {
+  const { examId, text, type, order, answers } = req.body as z.infer<typeof questionSchema>;
 
   const shapeError = validateAnswerShape(type, answers);
   if (shapeError) return res.status(400).json({ message: shapeError });
@@ -79,18 +82,18 @@ const updateSchema = z.object({
   answers: z.array(answerInput).min(2).optional(),
 });
 
-router.put("/:id", requireRole("ADMIN"), async (req, res) => {
-  const parsed = updateSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: "Données invalides", errors: parsed.error.flatten() });
-  }
-  const { answers, type, ...rest } = parsed.data;
+router.put("/:id", requireRole("ADMIN"), validateBody(updateSchema), async (req, res) => {
+  const { answers, type, ...rest } = req.body as z.infer<typeof updateSchema>;
 
-  if (answers) {
-    const existing = await prisma.question.findUnique({ where: { id: req.params.id } });
+  // La forme (nombre de bonnes réponses) doit être revalidée dès que le type OU les réponses
+  // changent : changer seulement le type sans toucher aux réponses pouvait auparavant laisser
+  // une question SINGLE avec plusieurs bonnes réponses (ou l'inverse), cassant la correction.
+  if (answers || type) {
+    const existing = await prisma.question.findUnique({ where: { id: req.params.id }, include: { answers: true } });
     if (!existing) return res.status(404).json({ message: "Question introuvable" });
     const effectiveType = type ?? existing.type;
-    const shapeError = validateAnswerShape(effectiveType, answers);
+    const effectiveAnswers = answers ?? existing.answers;
+    const shapeError = validateAnswerShape(effectiveType, effectiveAnswers);
     if (shapeError) return res.status(400).json({ message: shapeError });
   }
 

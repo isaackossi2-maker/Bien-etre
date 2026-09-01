@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../prisma";
 import { authenticate } from "../middleware/auth";
 import { logAction } from "../utils/log";
+import { canContact } from "../utils/permissions";
 import { Role } from "@prisma/client";
 
 const router = Router();
@@ -61,15 +62,8 @@ router.get("/unread-count", async (req, res) => {
   res.json({ count });
 });
 
-async function canConverseWith(currentUser: { id: string; role: Role }, otherUserId: string) {
-  if (currentUser.id === otherUserId) return false;
-  if (currentUser.role === "ADMIN") return true;
-  const other = await prisma.user.findUnique({ where: { id: otherUserId } });
-  return other?.role === "ADMIN";
-}
-
 router.get("/thread/:userId", async (req, res) => {
-  if (!(await canConverseWith(req.user!, req.params.userId))) {
+  if (!(await canContact(req.user!.id, req.user!.role, req.params.userId))) {
     return res.status(403).json({ message: "Accès refusé" });
   }
 
@@ -105,7 +99,7 @@ const messageSchema = z
   });
 
 router.post("/thread/:userId", async (req, res) => {
-  if (!(await canConverseWith(req.user!, req.params.userId))) {
+  if (!(await canContact(req.user!.id, req.user!.role, req.params.userId))) {
     return res.status(403).json({ message: "Accès refusé" });
   }
   const parsed = messageSchema.safeParse(req.body);

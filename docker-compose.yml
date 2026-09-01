@@ -26,11 +26,30 @@ services:
       # de tous les utilisateurs à chaque rebuild/redémarrage du backend.
       PORT: 4000
       CORS_ORIGIN: http://localhost:5173
+      LIBRETRANSLATE_URL: http://libretranslate:5000
     depends_on:
       db:
         condition: service_healthy
+      libretranslate:
+        condition: service_healthy
     ports:
       - "4001:4000"
+
+  # Traduction automatique du contenu (examens, méditations, annonces...) quand un
+  # utilisateur bascule la langue de l'appli. Auto-hébergé : pas de clé API, gratuit,
+  # ne charge que les modèles français/anglais pour limiter le temps de démarrage.
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    restart: unless-stopped
+    command: ["--load-only", "en,fr", "--disable-web-ui"]
+    volumes:
+      - libretranslate_data:/home/libretranslate/.local
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/languages')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
 
   frontend:
     build:
@@ -40,6 +59,10 @@ services:
         # les appels fonctionnent quand l'app est ouverte via le tunnel Cloudflare
         # (le nom de domaine du tunnel ne relaie pas le trafic TURN UDP/TCP).
         VITE_TURN_HOST: ${TURN_HOST:-132.213.72.90}
+        # Identifiant TURN embarqué dans le bundle frontend (nécessaire : le navigateur doit le
+        # connaître pour s'authentifier auprès de coturn). Vient de .env (non suivi par git),
+        # jamais écrit en dur ici pour éviter de le recommiter par erreur.
+        VITE_TURN_PASSWORD: ${TURN_PASSWORD:?Définis TURN_PASSWORD dans un fichier .env local (voir .env.example)}
     restart: unless-stopped
     depends_on:
       - backend
@@ -49,7 +72,9 @@ services:
   coturn:
     image: coturn/coturn:4.6.2
     restart: unless-stopped
-    command: ["-c", "/etc/coturn/turnserver.conf", "--no-cli"]
+    # Le mot de passe est passé ici plutôt qu'écrit dans turnserver.conf, pour qu'il ne finisse
+    # jamais dans un fichier suivi par git.
+    command: ["-c", "/etc/coturn/turnserver.conf", "--no-cli", "-u", "appperso:${TURN_PASSWORD:?Définis TURN_PASSWORD dans un fichier .env local (voir .env.example)}"]
     volumes:
       - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
     ports:
@@ -59,3 +84,4 @@ services:
 
 volumes:
   db_data:
+  libretranslate_data:

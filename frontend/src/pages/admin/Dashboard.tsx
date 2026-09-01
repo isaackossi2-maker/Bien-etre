@@ -1,25 +1,28 @@
 import { FormEvent, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import PostFeed from "../../components/PostFeed";
 import Avatar from "../../components/Avatar";
 import { User } from "../../types";
 
 const BG_COLORS = [
-  { label: "Par défaut", value: "" },
-  { label: "Bleu", value: "#e0f2fe" },
-  { label: "Vert", value: "#dcfce7" },
-  { label: "Jaune", value: "#fef9c3" },
-  { label: "Rose", value: "#fce7f3" },
-  { label: "Violet", value: "#ede9fe" },
-];
+  { key: "bgDefault", value: "" },
+  { key: "bgBlue", value: "#e0f2fe" },
+  { key: "bgGreen", value: "#dcfce7" },
+  { key: "bgYellow", value: "#fef9c3" },
+  { key: "bgPink", value: "#fce7f3" },
+  { key: "bgPurple", value: "#ede9fe" },
+] as const;
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const [showForm, setShowForm] = useState(false);
   const [newPost, setNewPost] = useState("");
   const [background, setBackground] = useState("");
   const [recipientMode, setRecipientMode] = useState<"all" | "specific">("all");
   const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -34,7 +37,14 @@ export default function Dashboard() {
 
   async function handlePublish(e: FormEvent) {
     e.preventDefault();
+    setPublishError(null);
     if (!newPost.trim()) return;
+    // Sans ce contrôle, choisir "Utilisateurs spécifiques" sans en cocher aucun envoyait le
+    // post avec recipientIds: [], qui n'atteignait donc personne, sans aucune erreur visible.
+    if (recipientMode === "specific" && selectedRecipients.length === 0) {
+      setPublishError(t("adminDashboard.noRecipientsSelected"));
+      return;
+    }
     await api.post("/posts", {
       content: newPost,
       background: background || undefined,
@@ -51,9 +61,9 @@ export default function Dashboard() {
   return (
     <div>
       <div className="page-header">
-        <h1>Tableau de bord</h1>
+        <h1>{t("adminDashboard.title")}</h1>
         <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Annuler" : "Nouvelle annonce"}
+          {showForm ? t("common.cancel") : t("adminDashboard.newPost")}
         </button>
       </div>
 
@@ -61,25 +71,25 @@ export default function Dashboard() {
         <div className="card" style={{ marginBottom: 20 }}>
           <form className="form-grid" onSubmit={handlePublish}>
             <label>
-              Publier une annonce
+              {t("adminDashboard.publishLabel")}
               <textarea value={newPost} onChange={(e) => setNewPost(e.target.value)} rows={3} required />
             </label>
 
             <div>
-              <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Fond du message</span>
+              <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>{t("adminDashboard.backgroundLabel")}</span>
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                 {BG_COLORS.map((c) => (
                   <button
-                    key={c.label}
+                    key={c.key}
                     type="button"
-                    title={c.label}
+                    title={t(`adminDashboard.${c.key}`)}
                     onClick={() => setBackground(c.value)}
                     style={{
                       width: 28,
                       height: 28,
                       borderRadius: "50%",
                       cursor: "pointer",
-                      background: c.value || "#fff",
+                      background: c.value || "var(--surface)",
                       border: background === c.value ? "2px solid var(--primary)" : "1px solid var(--border)",
                     }}
                   />
@@ -88,11 +98,11 @@ export default function Dashboard() {
             </div>
 
             <div>
-              <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Destinataires</span>
+              <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>{t("adminDashboard.recipients")}</span>
               <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
                 <label style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <input type="radio" checked={recipientMode === "all"} onChange={() => setRecipientMode("all")} />
-                  Tout le monde
+                  {t("adminDashboard.everyone")}
                 </label>
                 <label style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <input
@@ -100,7 +110,7 @@ export default function Dashboard() {
                     checked={recipientMode === "specific"}
                     onChange={() => setRecipientMode("specific")}
                   />
-                  Utilisateurs spécifiques
+                  {t("adminDashboard.specificUsers")}
                 </label>
               </div>
               {recipientMode === "specific" && (
@@ -129,8 +139,9 @@ export default function Dashboard() {
               )}
             </div>
 
+            {publishError && <span className="error-text">{publishError}</span>}
             <button className="btn btn-primary" type="submit">
-              Publier
+              {t("adminDashboard.publish")}
             </button>
           </form>
         </div>

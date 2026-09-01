@@ -4,9 +4,13 @@ import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { CallProvider } from "./call/CallContext";
 import CallOverlay from "./call/CallOverlay";
 import GroupCallOverlay from "./call/GroupCallOverlay";
+import MeetingAlertBanner from "./call/MeetingAlert";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
+import Reunion from "./pages/Reunion";
+import ReunionRoom from "./pages/ReunionRoom";
+import Bible from "./pages/Bible";
 import AdminLayout from "./layouts/AdminLayout";
 import UserLayout from "./layouts/UserLayout";
 
@@ -37,10 +41,20 @@ export default function App() {
     <CallProvider>
       <CallOverlay />
       <GroupCallOverlay />
+      <MeetingAlertBanner />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        {/* La salle de réunion reste hors des layouts admin/utilisateur : le lien est
+            partagé entre rôles et la vue plein écran suit le même schéma que les appels.
+            La session d'examen est également hors layout : pas de sidebar accessible
+            pendant l'épreuve, condition nécessaire au verrouillage de l'écran. */}
+        <Route element={<ProtectedRoute allowedRoles={["USER", "ADMIN"]} />}>
+          <Route path="/reunion/:id" element={<ReunionRoom />} />
+          <Route path="/exam-session/:id" element={<UserExamTake />} />
+        </Route>
 
         <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
           <Route path="/admin" element={<AdminLayout />}>
@@ -52,6 +66,8 @@ export default function App() {
             <Route path="questions" element={<AdminQuestions />} />
             <Route path="results" element={<AdminResults />} />
             <Route path="logs" element={<AdminLogs />} />
+            <Route path="reunion" element={<Reunion />} />
+            <Route path="bible" element={<Bible />} />
             <Route path="profile" element={<Profile />} />
           </Route>
         </Route>
@@ -61,8 +77,9 @@ export default function App() {
             <Route index element={<UserDashboard />} />
             <Route path="meditations" element={<UserMeditations />} />
             <Route path="exams" element={<UserExams />} />
-            <Route path="exams/:id" element={<UserExamTake />} />
             <Route path="questions" element={<UserQuestions />} />
+            <Route path="reunion" element={<Reunion />} />
+            <Route path="bible" element={<Bible />} />
             <Route path="profile" element={<Profile />} />
           </Route>
         </Route>

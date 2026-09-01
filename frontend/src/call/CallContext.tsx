@@ -1,9 +1,17 @@
-import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, MutableRefObject, ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
+import { useStateRef } from "../hooks/useStateRef";
 
 export type CallStatus = "idle" | "outgoing" | "incoming" | "connecting" | "active";
 export type GroupCallStatus = "idle" | "incoming" | "active";
+
+export interface MeetingAlert {
+  id: string;
+  title: string;
+  createdBy: { id: string; name: string };
+}
 
 export interface CallPeer {
   id: string;
@@ -28,6 +36,7 @@ interface CallContextValue {
   peer: CallPeer | null;
   isVideo: boolean;
   error: string | null;
+  errorKey: number;
   duration: number;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
@@ -52,6 +61,16 @@ interface CallContextValue {
   leaveGroupCall: () => void;
   toggleGroupMute: () => void;
   toggleGroupCamera: () => void;
+
+  meetingAlert: MeetingAlert | null;
+  meetingListVersion: number;
+  dismissMeetingAlert: () => void;
+
+  // Connexion WebSocket partagée, réutilisable par d'autres écrans (la salle de réunion) au
+  // lieu d'en ouvrir une deuxième par onglet.
+  wsConnected: boolean;
+  sendSignal: (data: unknown) => void;
+  onSignal: (listener: (msg: SignalMessage) => void) => () => void;
 }
 
 const CallContext = createContext<CallContextValue | undefined>(undefined);
@@ -60,12 +79,15 @@ const CallContext = createContext<CallContextValue | undefined>(undefined);
 // l'IP publique de la machine qui l'héberge : le nom de domaine du tunnel Cloudflare
 // (window.location.hostname) ne relaie que le trafic web, pas le trafic TURN UDP/TCP.
 const TURN_HOST = import.meta.env.VITE_TURN_HOST || (typeof window !== "undefined" ? window.location.hostname : "localhost");
-const ICE_SERVERS: RTCIceServer[] = [
+// Injecté au build (voir VITE_TURN_PASSWORD dans docker-compose.yml) à partir de .env, jamais
+// écrit en dur dans le code source suivi par git.
+const TURN_PASSWORD = import.meta.env.VITE_TURN_PASSWORD || "";
+export const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   {
     urls: [`turn:${TURN_HOST}:3478?transport=udp`, `turn:${TURN_HOST}:3478?transport=tcp`],
     username: "appperso",
-    credential: "f0b034313509e2c42d09aa63",
+    credential: TURN_PASSWORD,
   },
 ];
 const OUTGOING_TIMEOUT_MS = 30000;
@@ -84,78 +106,63 @@ interface SignalMessage {
   id?: string;
   name?: string;
   participants?: { id: string; name: string }[];
+  meeting?: MeetingAlert;
+  meetingId?: string;
 }
 
 export function CallProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const { user } = useAuth();
-  const [status, setStatus] = useState<CallStatus>("idle");
-  const [peer, setPeer] = useState<CallPeer | null>(null);
-  const [isVideo, setIsVideo] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatusBoth, statusRef] = useStateRef<CallStatus>("idle");
+  const [peer, setPeerBoth, peerRef] = useStateRef<CallPeer | null>(null);
+  const [isVideo, setIsVideoBoth, isVideoRef] = useStateRef(false);
+  const [error, setErrorState] = useState<string | null>(null);
+  // errorKey s'incrémente à chaque erreur signalée, même si le message est identique au
+  // précédent : React ignore un setState de valeur strictement égale (Object.is), donc deux
+  // échecs d'appel consécutifs au même message ("Pas de réponse.") ne déclenchaient jamais de
+  // second rendu — le toast d'erreur ne réapparaissait pas pour le second échec.
+  const [errorKey, setErrorKey] = useState(0);
+  function setError(message: string | null) {
+    setErrorState(message);
+    if (message) setErrorKey((k) => k + 1);
+  }
   const [duration, setDuration] = useState(0);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [localStream, setLocalStreamBoth, localStreamRef] = useStateRef<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
 
-  const [groupCallStatus, setGroupCallStatus] = useState<GroupCallStatus>("idle");
-  const [groupCallInfo, setGroupCallInfo] = useState<GroupCallInfo | null>(null);
+  const [groupCallStatus, setGroupCallStatusBoth, groupCallStatusRef] = useStateRef<GroupCallStatus>("idle");
+  const [groupCallInfo, setGroupCallInfoBoth, groupCallInfoRef] = useStateRef<GroupCallInfo | null>(null);
   const [groupIsVideo, setGroupIsVideo] = useState(false);
   const [groupParticipants, setGroupParticipants] = useState<GroupParticipant[]>([]);
-  const [groupLocalStream, setGroupLocalStream] = useState<MediaStream | null>(null);
+  const [groupLocalStream, setGroupLocalStreamBoth, groupLocalStreamRef] = useStateRef<MediaStream | null>(null);
   const [groupMuted, setGroupMuted] = useState(false);
   const [groupCameraOff, setGroupCameraOff] = useState(false);
 
+  const [meetingAlert, setMeetingAlert] = useState<MeetingAlert | null>(null);
+  // Incrémenté à chaque création OU fin de réunion : signal fiable pour que la page Réunion
+  // rafraîchisse sa liste dans les deux cas (auparavant elle ne rechargeait que sur
+  // "meetingAlert" devenant vrai, donc jamais à la fermeture d'une réunion : la carte restée
+  // affichée gardait son bouton "Rejoindre" alors que la réunion était déjà terminée).
+  const [meetingListVersion, setMeetingListVersion] = useState(0);
+  // Vrai une fois la connexion WebSocket partagée établie : la salle de réunion attend ce signal
+  // avant d'envoyer "meeting:join" (au premier montage comme après une reconnexion).
+  const [wsConnected, setWsConnected] = useState(false);
+
   const wsRef = useRef<WebSocket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
-  const statusRef = useRef<CallStatus>("idle");
-  const peerRef = useRef<CallPeer | null>(null);
-  const isVideoRef = useRef(false);
-  const localStreamRef = useRef<MediaStream | null>(null);
   const localMediaPromiseRef = useRef<Promise<MediaStream> | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const outgoingTimeoutRef = useRef<number | null>(null);
   const durationTimerRef = useRef<number | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
-  const groupCallStatusRef = useRef<GroupCallStatus>("idle");
-  const groupCallInfoRef = useRef<GroupCallInfo | null>(null);
-  const groupLocalStreamRef = useRef<MediaStream | null>(null);
   const groupLocalMediaPromiseRef = useRef<Promise<MediaStream> | null>(null);
   const groupPeerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const groupPendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const groupParticipantNamesRef = useRef<Map<string, string>>(new Map());
   const groupStreamsRef = useRef<Map<string, MediaStream>>(new Map());
-
-  const setStatusBoth = (s: CallStatus) => {
-    statusRef.current = s;
-    setStatus(s);
-  };
-  const setPeerBoth = (p: CallPeer | null) => {
-    peerRef.current = p;
-    setPeer(p);
-  };
-  const setIsVideoBoth = (v: boolean) => {
-    isVideoRef.current = v;
-    setIsVideo(v);
-  };
-  const setLocalStreamBoth = (s: MediaStream | null) => {
-    localStreamRef.current = s;
-    setLocalStream(s);
-  };
-
-  const setGroupCallStatusBoth = (s: GroupCallStatus) => {
-    groupCallStatusRef.current = s;
-    setGroupCallStatus(s);
-  };
-  const setGroupCallInfoBoth = (i: GroupCallInfo | null) => {
-    groupCallInfoRef.current = i;
-    setGroupCallInfo(i);
-  };
-  const setGroupLocalStreamBoth = (s: MediaStream | null) => {
-    groupLocalStreamRef.current = s;
-    setGroupLocalStream(s);
-  };
 
   const send = useCallback((data: unknown) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -182,20 +189,31 @@ export function CallProvider({ children }: { children: ReactNode }) {
     durationTimerRef.current = window.setInterval(() => setDuration((d) => d + 1), 1000);
   }
 
-  function getLocalMedia(video: boolean): Promise<MediaStream> {
-    if (localMediaPromiseRef.current) return localMediaPromiseRef.current;
+  // getLocalMedia et getGroupLocalMedia sont sinon identiques à part le ref de cache et le
+  // setState appelé une fois le flux obtenu ; factorisé pour ne garder qu'une seule copie de
+  // la logique d'acquisition/cache/erreur de getUserMedia.
+  function acquireMedia(
+    promiseRef: MutableRefObject<Promise<MediaStream> | null>,
+    video: boolean,
+    onStream: (stream: MediaStream) => void
+  ): Promise<MediaStream> {
+    if (promiseRef.current) return promiseRef.current;
     const p = navigator.mediaDevices
       .getUserMedia({ audio: true, video })
       .then((stream) => {
-        setLocalStreamBoth(stream);
+        onStream(stream);
         return stream;
       })
       .catch((err) => {
-        localMediaPromiseRef.current = null;
+        promiseRef.current = null;
         throw err;
       });
-    localMediaPromiseRef.current = p;
+    promiseRef.current = p;
     return p;
+  }
+
+  function getLocalMedia(video: boolean): Promise<MediaStream> {
+    return acquireMedia(localMediaPromiseRef, video, setLocalStreamBoth);
   }
 
   function cleanupResources() {
@@ -250,7 +268,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       await pc.setLocalDescription(offer);
       send({ type: "webrtc:offer", to: peerRef.current!.id, sdp: offer });
     } catch {
-      setError("Impossible d'accéder au micro/caméra.");
+      setError(t("callOverlay.micError"));
       endCall(true);
     }
   }
@@ -265,7 +283,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         if (!pc.getSenders().some((s) => s.track === t)) pc.addTrack(t, stream);
       });
     } catch {
-      setError("Impossible d'accéder au micro/caméra.");
+      setError(t("callOverlay.micError"));
       endCall(true);
       return;
     }
@@ -277,8 +295,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
   // Laisse une trace de l'appel manqué/refusé dans le fil de discussion, pour que
   // la personne le voie même si elle n'était pas sur l'application au moment de l'appel.
   function logMissedCall(recipientId: string, video: boolean, reason: "no-answer" | "rejected") {
-    const label = video ? "Appel vidéo" : "Appel vocal";
-    const content = reason === "rejected" ? `${label} refusé` : `${label} manqué (sans réponse)`;
+    const label = video ? t("callOverlay.missedVideoLabel") : t("callOverlay.missedVoiceLabel");
+    const content =
+      reason === "rejected" ? t("callOverlay.missedRejected", { label }) : t("callOverlay.missedNoAnswer", { label });
     api.post(`/messages/thread/${recipientId}`, { content: `📞 ${content}` }).catch(() => {});
   }
 
@@ -305,19 +324,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }
 
   function getGroupLocalMedia(video: boolean): Promise<MediaStream> {
-    if (groupLocalMediaPromiseRef.current) return groupLocalMediaPromiseRef.current;
-    const p = navigator.mediaDevices
-      .getUserMedia({ audio: true, video })
-      .then((stream) => {
-        setGroupLocalStreamBoth(stream);
-        return stream;
-      })
-      .catch((err) => {
-        groupLocalMediaPromiseRef.current = null;
-        throw err;
-      });
-    groupLocalMediaPromiseRef.current = p;
-    return p;
+    return acquireMedia(groupLocalMediaPromiseRef, video, setGroupLocalStreamBoth);
   }
 
   function createGroupPeerConnection(peerId: string) {
@@ -402,7 +409,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     try {
       await getGroupLocalMedia(video);
     } catch {
-      setError("Impossible d'accéder au micro/caméra.");
+      setError(t("callOverlay.micError"));
       cleanupGroupCall();
       setGroupCallStatusBoth("idle");
       return;
@@ -417,7 +424,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     try {
       await getGroupLocalMedia(video);
     } catch {
-      setError("Impossible d'accéder au micro/caméra.");
+      setError(t("callOverlay.micError"));
       cleanupGroupCall();
       setGroupCallStatusBoth("idle");
       return;
@@ -459,11 +466,28 @@ export function CallProvider({ children }: { children: ReactNode }) {
       case "call:invite": {
         if (!msg.from) return;
         if (statusRef.current !== "idle" || groupCallStatusRef.current !== "idle") {
+          // Appel croisé : A et B s'appellent au même instant, chacun est déjà "outgoing"
+          // quand l'invitation de l'autre arrive, et se rejetaient réflexivement l'un l'autre
+          // (occupé) — aucun appel n'aboutissait jamais. On tranche par un ordre déterministe :
+          // celui dont l'id est le plus petit devient l'appelé (bascule sur l'invitation reçue,
+          // en abandonnant son propre appel sortant), l'autre reste appelant et ignore
+          // silencieusement le doublon — son appel sortant continue de sonner normalement.
+          const isMutualGlare = statusRef.current === "outgoing" && peerRef.current?.id === msg.from;
+          if (isMutualGlare) {
+            if (user && msg.from < user.id) {
+              clearOutgoingTimeout();
+              setError(null);
+              setPeerBoth({ id: msg.from, name: msg.fromName ?? t("common.unknown") });
+              setIsVideoBoth(!!msg.video);
+              setStatusBoth("incoming");
+            }
+            return;
+          }
           send({ type: "call:reject", to: msg.from });
           return;
         }
         setError(null);
-        setPeerBoth({ id: msg.from, name: msg.fromName ?? "Inconnu" });
+        setPeerBoth({ id: msg.from, name: msg.fromName ?? t("common.unknown") });
         setIsVideoBoth(!!msg.video);
         setStatusBoth("incoming");
         break;
@@ -477,7 +501,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
       case "call:reject": {
         if (!msg.from || peerRef.current?.id !== msg.from) return;
-        setError("Appel refusé.");
+        setError(t("callOverlay.rejected"));
         logMissedCall(msg.from, isVideoRef.current, "rejected");
         cleanupResources();
         setStatusBoth("idle");
@@ -485,7 +509,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
       case "call:cancel": {
         if (peerRef.current?.id !== msg.from) return;
-        setError("Appel annulé.");
+        setError(t("callOverlay.cancelled"));
         cleanupResources();
         setStatusBoth("idle");
         break;
@@ -497,7 +521,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         break;
       }
       case "call:unavailable": {
-        setError(msg.reason === "forbidden" ? "Vous ne pouvez pas appeler cet utilisateur." : "Utilisateur injoignable.");
+        setError(msg.reason === "forbidden" ? t("callOverlay.forbidden") : t("callOverlay.unreachable"));
         cleanupResources();
         setStatusBoth("idle");
         break;
@@ -507,7 +531,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         if (peerRef.current?.id === msg.from) {
           await handleRemoteOffer(msg.sdp);
         } else if (groupCallStatusRef.current === "active") {
-          await handleGroupRemoteOffer(msg.from, msg.fromName ?? "Inconnu", msg.sdp);
+          await handleGroupRemoteOffer(msg.from, msg.fromName ?? t("common.unknown"), msg.sdp);
         }
         break;
       }
@@ -552,7 +576,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         setGroupIsVideo(!!msg.video);
         setGroupCallInfoBoth({
           groupId: msg.groupId,
-          groupName: msg.groupName ?? "Groupe",
+          groupName: msg.groupName ?? t("common.group"),
           video: !!msg.video,
           fromName: msg.fromName,
         });
@@ -565,7 +589,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       }
       case "group-call:peer-joined": {
         if (!msg.id || groupCallStatusRef.current !== "active") return;
-        await initiateGroupOfferTo(msg.id, msg.name ?? "Inconnu");
+        await initiateGroupOfferTo(msg.id, msg.name ?? t("common.unknown"));
         break;
       }
       case "group-call:peer-left": {
@@ -578,15 +602,44 @@ export function CallProvider({ children }: { children: ReactNode }) {
         setGroupCallStatusBoth("idle");
         break;
       }
+      case "meeting:new": {
+        if (msg.meeting) setMeetingAlert(msg.meeting);
+        setMeetingListVersion((v) => v + 1);
+        break;
+      }
+      case "meeting:closed": {
+        setMeetingAlert((current) => (current?.id === msg.meetingId ? null : current));
+        setMeetingListVersion((v) => v + 1);
+        break;
+      }
       default:
         break;
     }
   }
 
+  function dismissMeetingAlert() {
+    setMeetingAlert(null);
+  }
+
+  // Permet à d'autres écrans (la salle de réunion) de réutiliser CETTE MÊME connexion au lieu
+  // d'en ouvrir une deuxième : avant, ReunionRoom créait son propre WebSocket indépendant, sans
+  // logique de reconnexion (contrairement à celui-ci), pour un total de deux sockets vivantes
+  // par onglet. Chaque message reçu est transmis à tous les abonnés, en plus du traitement
+  // interne ci-dessus (les types "meeting:*"/"webrtc:*" propres à une réunion ne sont pas
+  // reconnus par le switch interne, donc ignorés silencieusement ici — sans conflit).
+  const signalListenersRef = useRef<Set<(msg: SignalMessage) => void>>(new Set());
+  const onSignal = useCallback((listener: (msg: SignalMessage) => void) => {
+    signalListenersRef.current.add(listener);
+    return () => {
+      signalListenersRef.current.delete(listener);
+    };
+  }, []);
+
   useEffect(() => {
     if (!user) {
       wsRef.current?.close();
       wsRef.current = null;
+      setWsConnected(false);
       return;
     }
     let cancelled = false;
@@ -597,14 +650,29 @@ export function CallProvider({ children }: { children: ReactNode }) {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const ws = new WebSocket(`${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`);
       wsRef.current = ws;
+      ws.onopen = () => {
+        if (!cancelled) setWsConnected(true);
+      };
       ws.onmessage = (event) => {
+        let parsed: SignalMessage;
         try {
-          handleSignal(JSON.parse(event.data));
+          parsed = JSON.parse(event.data);
         } catch {
-          // message non exploitable, on ignore
+          return; // message non exploitable, on ignore
         }
+        // handleSignal est async (setRemoteDescription, createAnswer...) : un rejet dans un
+        // de ces appels (ex. SDP invalide) n'était catché par aucun try/catch synchrone et
+        // devenait une rejection non gérée, laissant l'appel bloqué en "connecting" pour
+        // toujours sans qu'aucun nettoyage ne se déclenche.
+        handleSignal(parsed).catch((err) => {
+          console.error("Erreur de signalisation d'appel :", err);
+          cleanupResources();
+          setStatusBoth("idle");
+        });
+        signalListenersRef.current.forEach((listener) => listener(parsed));
       };
       ws.onclose = () => {
+        setWsConnected(false);
         if (!cancelled) {
           reconnectTimeoutRef.current = window.setTimeout(connect, 3000);
         }
@@ -617,6 +685,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (reconnectTimeoutRef.current) window.clearTimeout(reconnectTimeoutRef.current);
       wsRef.current?.close();
       wsRef.current = null;
+      setWsConnected(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
@@ -630,7 +699,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     send({ type: "call:invite", to: p.id, video });
     outgoingTimeoutRef.current = window.setTimeout(() => {
       if (statusRef.current === "outgoing") {
-        setError("Pas de réponse.");
+        setError(t("callOverlay.noAnswer"));
         if (peerRef.current) logMissedCall(peerRef.current.id, isVideoRef.current, "no-answer");
         endCall(true);
       }
@@ -645,7 +714,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     try {
       await getLocalMedia(isVideoRef.current);
     } catch {
-      setError("Impossible d'accéder au micro/caméra.");
+      setError(t("callOverlay.micError"));
       endCall(true);
     }
   }
@@ -675,6 +744,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     peer,
     isVideo,
     error,
+    errorKey,
     duration,
     localStream,
     remoteStream,
@@ -699,6 +769,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
     leaveGroupCall,
     toggleGroupMute,
     toggleGroupCamera,
+
+    meetingAlert,
+    meetingListVersion,
+    dismissMeetingAlert,
+
+    wsConnected,
+    sendSignal: send,
+    onSignal,
   };
 
   return <CallContext.Provider value={value}>{children}</CallContext.Provider>;

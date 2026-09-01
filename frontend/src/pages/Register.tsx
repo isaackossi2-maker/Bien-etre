@@ -1,8 +1,10 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Register() {
+  const { t } = useTranslation();
   const { user, register } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState("");
@@ -23,7 +25,7 @@ export default function Register() {
       await register(name, email, password);
       navigate("/app");
     } catch (err: any) {
-      setError(err.response?.data?.message ?? "Impossible de créer le compte");
+      setError(err.response?.data?.message ?? t("register.error"));
     } finally {
       setLoading(false);
     }
@@ -32,19 +34,19 @@ export default function Register() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1>Créer un compte</h1>
-        <p>Rejoignez l'espace bien-être</p>
+        <h1>{t("register.title")}</h1>
+        <p>{t("register.subtitle")}</p>
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
-            Nom complet
+            {t("register.fullName")}
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </label>
           <label>
-            Email
+            {t("register.email")}
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </label>
           <label>
-            Mot de passe
+            {t("register.password")}
             <input
               type="password"
               value={password}
@@ -55,11 +57,11 @@ export default function Register() {
           </label>
           {error && <span className="error-text">{error}</span>}
           <button className="btn btn-primary" type="submit" disabled={loading}>
-            {loading ? "Création..." : "S'inscrire"}
+            {loading ? t("register.submitting") : t("register.submit")}
           </button>
         </form>
         <p style={{ fontSize: "0.85rem", marginTop: 16 }}>
-          Déjà un compte ? <Link to="/login">Se connecter</Link>
+          {t("register.hasAccount")} <Link to="/login">{t("register.loginLink")}</Link>
         </p>
       </div>
     </div>

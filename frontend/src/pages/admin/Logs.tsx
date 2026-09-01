@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { LogEntry } from "../../types";
 import Avatar from "../../components/Avatar";
+import { formatDateTime } from "../../utils/date";
 
 export default function AdminLogs() {
+  const { t, i18n } = useTranslation();
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
   useEffect(() => {
@@ -13,25 +16,25 @@ export default function AdminLogs() {
   return (
     <div>
       <div className="page-header">
-        <h1>Logs</h1>
+        <h1>{t("adminLogs.title")}</h1>
       </div>
 
       {logs.length === 0 ? (
-        <p className="empty-state">Aucun log pour le moment.</p>
+        <p className="empty-state">{t("adminLogs.noLogs")}</p>
       ) : (
         <table className="table-no-lines">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Utilisateur</th>
-              <th>Action</th>
-              <th>Détail</th>
+              <th>{t("adminLogs.date")}</th>
+              <th>{t("adminLogs.user")}</th>
+              <th>{t("adminLogs.action")}</th>
+              <th>{t("adminLogs.detail")}</th>
             </tr>
           </thead>
           <tbody>
             {logs.map((log) => (
               <tr key={log.id}>
-                <td>{new Date(log.createdAt).toLocaleString("fr-FR")}</td>
+                <td>{formatDateTime(log.createdAt, i18n.language)}</td>
                 <td>
                   {log.user ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -41,7 +44,7 @@ export default function AdminLogs() {
                       </span>
                     </div>
                   ) : (
-                    "—"
+                    t("common.none")
                   )}
                 </td>
                 <td>{log.action.toLowerCase()}</td>

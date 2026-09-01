@@ -6,7 +6,10 @@ const router = Router();
 router.use(authenticate, requireRole("ADMIN"));
 
 router.get("/", async (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 200, 500);
+  // "|| 200" écraserait un ?limit=0 explicite (0 est falsy) : on ne retombe sur le
+  // défaut que si la valeur est absente ou invalide, pas simplement fausse-y.
+  const rawLimit = Number(req.query.limit);
+  const limit = Math.min(req.query.limit !== undefined && Number.isFinite(rawLimit) && rawLimit >= 0 ? rawLimit : 200, 500);
   const logs = await prisma.log.findMany({
     orderBy: { createdAt: "desc" },
     take: limit,

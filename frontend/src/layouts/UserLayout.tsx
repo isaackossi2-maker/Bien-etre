@@ -1,22 +1,27 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthContext";
 import { useUnreadCount } from "../hooks/useUnreadCount";
 import Avatar from "../components/Avatar";
 import StarLogo from "../components/StarLogo";
-
-const links = [
-  { to: "/app", label: "Tableau de bord", end: true },
-  { to: "/app/meditations", label: "Méditations" },
-  { to: "/app/exams", label: "Examens" },
-  { to: "/app/questions", label: "Discussions", showUnread: true },
-];
+import QuickSettings from "../components/QuickSettings";
 
 export default function UserLayout() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const unreadCount = useUnreadCount();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+
+  const links = [
+    { to: "/app", label: t("nav.dashboard"), end: true },
+    { to: "/app/meditations", label: t("nav.meditations") },
+    { to: "/app/exams", label: t("nav.exams") },
+    { to: "/app/questions", label: t("nav.discussions"), showUnread: true },
+    { to: "/app/reunion", label: t("nav.reunion") },
+    { to: "/app/bible", label: t("nav.bible") },
+  ];
 
   useEffect(() => {
     setMobileOpen(false);
@@ -24,6 +29,7 @@ export default function UserLayout() {
 
   return (
     <div className="app-shell">
+      <QuickSettings />
       <div className="mobile-topbar">
         <button className="hamburger-btn" aria-label="Menu" onClick={() => setMobileOpen((v) => !v)}>
           <span />
@@ -59,11 +65,13 @@ export default function UserLayout() {
             <Avatar name={user?.name} avatar={user?.avatar} size={38} />
             <div>
               {user?.name}
-              <small>{user?.email} · Modifier le profil</small>
+              <small>
+                {user?.email} · {t("nav.profile")}
+              </small>
             </div>
           </Link>
           <button className="btn btn-outline" style={{ width: "100%" }} onClick={logout}>
-            Déconnexion
+            {t("nav.logout")}
           </button>
         </div>
       </aside>

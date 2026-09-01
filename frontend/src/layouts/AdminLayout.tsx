@@ -1,25 +1,30 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthContext";
 import { useUnreadCount } from "../hooks/useUnreadCount";
 import Avatar from "../components/Avatar";
 import StarLogo from "../components/StarLogo";
-
-const links = [
-  { to: "/admin", label: "Tableau de bord", end: true },
-  { to: "/admin/users", label: "Utilisateurs" },
-  { to: "/admin/exams", label: "Examens" },
-  { to: "/admin/meditations", label: "Méditations" },
-  { to: "/admin/questions", label: "Discussions", showUnread: true },
-  { to: "/admin/results", label: "Notes" },
-  { to: "/admin/logs", label: "Logs" },
-];
+import QuickSettings from "../components/QuickSettings";
 
 export default function AdminLayout() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const unreadCount = useUnreadCount();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+
+  const links = [
+    { to: "/admin", label: t("nav.dashboard"), end: true },
+    { to: "/admin/users", label: t("nav.users") },
+    { to: "/admin/exams", label: t("nav.exams") },
+    { to: "/admin/meditations", label: t("nav.meditations") },
+    { to: "/admin/questions", label: t("nav.discussions"), showUnread: true },
+    { to: "/admin/results", label: t("nav.results") },
+    { to: "/admin/logs", label: t("nav.logs") },
+    { to: "/admin/reunion", label: t("nav.reunion") },
+    { to: "/admin/bible", label: t("nav.bible") },
+  ];
 
   useEffect(() => {
     setMobileOpen(false);
@@ -27,6 +32,7 @@ export default function AdminLayout() {
 
   return (
     <div className="app-shell">
+      <QuickSettings />
       <div className="mobile-topbar">
         <button className="hamburger-btn" aria-label="Menu" onClick={() => setMobileOpen((v) => !v)}>
           <span />
@@ -62,11 +68,13 @@ export default function AdminLayout() {
             <Avatar name={user?.name} avatar={user?.avatar} size={38} />
             <div>
               {user?.name}
-              <small>{user?.email} · Modifier le profil</small>
+              <small>
+                {user?.email} · {t("nav.profile")}
+              </small>
             </div>
           </Link>
           <button className="btn btn-outline" style={{ width: "100%" }} onClick={logout}>
-            Déconnexion
+            {t("nav.logout")}
           </button>
         </div>
       </aside>

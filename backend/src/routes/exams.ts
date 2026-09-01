@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { authenticate, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
 import { logAction } from "../utils/log";
 
 const router = Router();
@@ -75,22 +76,14 @@ const examUpdateSchema = z.object({
   maxAttempts: z.number().int().positive().nullable().optional(),
 });
 
-router.post("/", requireRole("ADMIN"), async (req, res) => {
-  const parsed = examCreateSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: "Données invalides", errors: parsed.error.flatten() });
-  }
-  const exam = await prisma.exam.create({ data: parsed.data });
+router.post("/", requireRole("ADMIN"), validateBody(examCreateSchema), async (req, res) => {
+  const exam = await prisma.exam.create({ data: req.body as z.infer<typeof examCreateSchema> });
   await logAction(req.user!.id, "EXAM_CREATE", `Création de l'examen ${exam.title}`);
   res.status(201).json(exam);
 });
 
-router.put("/:id", requireRole("ADMIN"), async (req, res) => {
-  const parsed = examUpdateSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: "Données invalides", errors: parsed.error.flatten() });
-  }
-  const exam = await prisma.exam.update({ where: { id: req.params.id }, data: parsed.data });
+router.put("/:id", requireRole("ADMIN"), validateBody(examUpdateSchema), async (req, res) => {
+  const exam = await prisma.exam.update({ where: { id: req.params.id }, data: req.body as z.infer<typeof examUpdateSchema> });
   await logAction(req.user!.id, "EXAM_UPDATE", `Modification de l'examen ${exam.title}`);
   res.json(exam);
 });
@@ -106,11 +99,8 @@ const submitSchema = z.object({
   answers: z.array(z.object({ questionId: z.string(), answerIds: z.array(z.string()).min(1) })),
 });
 
-router.post("/:id/submit", async (req, res) => {
-  const parsed = submitSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: "Données invalides", errors: parsed.error.flatten() });
-  }
+router.post("/:id/submit", validateBody(submitSchema), async (req, res) => {
+  const parsedData = req.body as z.infer<typeof submitSchema>;
 
   const exam = await prisma.exam.findUnique({
     where: { id: req.params.id },
@@ -133,7 +123,7 @@ router.post("/:id/submit", async (req, res) => {
   const total = exam.questions.length;
   const validAnswers: { questionId: string; answerId: string }[] = [];
 
-  for (const submitted of parsed.data.answers) {
+  for (const submitted of parsedData.answers) {
     const question = exam.questions.find((q) => q.id === submitted.questionId);
     if (!question) continue;
 
@@ -265,9 +255,18 @@ router.put("/results/:id/grade", requireRole("ADMIN"), async (req, res) => {
 
   const existing = await prisma.examResult.findUnique({
     where: { id: req.params.id },
-    include: { exam: { select: { title: true } } },
+    include: { exam: { select: { title: true, questions: { select: { id: true } } } } },
   });
   if (!existing) return res.status(404).json({ message: "Résultat introuvable" });
+
+  // Sans ce contrôle, un questionId copié-collé d'un autre examen serait accepté par Prisma
+  // (la contrainte de clé étrangère ne vérifie que l'existence de la question, pas son
+  // appartenance à CET examen) et attacherait une note invisible à ce résultat.
+  const validQuestionIds = new Set(existing.exam.questions.map((q) => q.id));
+  const hasForeignQuestion = parsed.data.questionGrades.some((g) => !validQuestionIds.has(g.questionId));
+  if (hasForeignQuestion) {
+    return res.status(400).json({ message: "Une des questions ne correspond pas à cet examen" });
+  }
 
   const { score, total } = parsed.data;
 

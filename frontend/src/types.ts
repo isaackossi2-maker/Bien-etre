@@ -134,6 +134,15 @@ export interface Post {
   recipients: { id: string; name: string }[];
 }
 
+export interface Meeting {
+  id: string;
+  title: string;
+  createdById: string;
+  createdAt: string;
+  endedAt?: string | null;
+  createdBy?: { id: string; name: string };
+}
+
 export interface LogEntry {
   id: string;
   action: string;

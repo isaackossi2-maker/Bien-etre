@@ -1,39 +1,12 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useCall } from "./CallContext";
 import { useAuth } from "../auth/AuthContext";
-
-function useRingtone(active: boolean) {
-  useEffect(() => {
-    if (!active) return;
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-
-    function beep() {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.frequency.value = 700;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-      osc.stop(ctx.currentTime + 0.4);
-    }
-
-    beep();
-    const interval = window.setInterval(beep, 1500);
-    return () => {
-      window.clearInterval(interval);
-      ctx.close();
-    };
-  }, [active]);
-}
+import { useRingtone } from "./useRingtone";
 
 function ParticipantTile({
   name,
   stream,
-  muted,
   isVideo,
   isSelf,
 }: {
@@ -43,6 +16,7 @@ function ParticipantTile({
   isVideo: boolean;
   isSelf?: boolean;
 }) {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -104,13 +78,14 @@ function ParticipantTile({
         }}
       >
         {name}
-        {isSelf ? " (moi)" : ""}
+        {isSelf ? t("reunionRoom.youSuffix") : ""}
       </div>
     </div>
   );
 }
 
 export default function GroupCallOverlay() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const {
     groupCallStatus,
@@ -134,7 +109,7 @@ export default function GroupCallOverlay() {
   const overlayBase: React.CSSProperties = {
     position: "fixed",
     inset: 0,
-    background: "rgba(245, 246, 250, 0.97)",
+    background: "var(--overlay-bg)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -167,19 +142,19 @@ export default function GroupCallOverlay() {
         </div>
         <h2 style={{ margin: "0 0 4px" }}>{groupCallInfo?.groupName}</h2>
         <p style={{ color: "var(--text-muted)", marginTop: 0 }}>
-          {groupCallInfo?.fromName} démarre un appel {groupCallInfo?.video ? "vidéo" : "vocal"} de groupe...
+          {groupCallInfo?.fromName} {t(groupCallInfo?.video ? "groupCallOverlay.startingVideo" : "groupCallOverlay.startingVoice")}
         </p>
         <div style={{ display: "flex", gap: 24, marginTop: 24 }}>
           <button
             onClick={declineGroupCall}
-            title="Ignorer"
+            title={t("groupCallOverlay.decline")}
             style={{ width: 56, height: 56, borderRadius: "50%", border: "none", background: "var(--danger)", color: "#fff", fontSize: "1.4rem", cursor: "pointer" }}
           >
             ✕
           </button>
           <button
             onClick={joinGroupCall}
-            title="Rejoindre"
+            title={t("groupCallOverlay.join")}
             style={{ width: 56, height: 56, borderRadius: "50%", border: "none", background: "var(--success)", color: "#fff", fontSize: "1.4rem", cursor: "pointer" }}
           >
             ✓
@@ -198,7 +173,7 @@ export default function GroupCallOverlay() {
     <div style={overlayBase}>
       <div style={{ marginBottom: 12 }}>
         <h2 style={{ margin: "0 0 2px" }}>👥 {groupCallInfo?.groupName}</h2>
-        <p style={{ color: "var(--text-muted)", margin: 0 }}>{others.length + 1} participant(s)</p>
+        <p style={{ color: "var(--text-muted)", margin: 0 }}>{t("groupCallOverlay.participants", { count: others.length + 1 })}</p>
       </div>
 
       <div
@@ -211,7 +186,7 @@ export default function GroupCallOverlay() {
           overflowY: "auto",
         }}
       >
-        <ParticipantTile name={user?.name ?? "Moi"} stream={groupLocalStream} isVideo={groupIsVideo && !groupCameraOff} isSelf />
+        <ParticipantTile name={user?.name ?? t("reunion.me")} stream={groupLocalStream} isVideo={groupIsVideo && !groupCameraOff} isSelf />
         {others.map((p) => (
           <ParticipantTile key={p.id} name={p.name} stream={p.stream} isVideo={groupIsVideo} />
         ))}
@@ -220,13 +195,13 @@ export default function GroupCallOverlay() {
       <div style={{ display: "flex", gap: 20, marginTop: 28, alignItems: "center" }}>
         <button
           onClick={toggleGroupMute}
-          title={groupMuted ? "Réactiver le micro" : "Couper le micro"}
+          title={groupMuted ? t("groupCallOverlay.enableMic") : t("groupCallOverlay.disableMic")}
           style={{
             width: 48,
             height: 48,
             borderRadius: "50%",
             border: groupMuted ? "none" : "1px solid var(--border)",
-            background: groupMuted ? "var(--danger)" : "#fff",
+            background: groupMuted ? "var(--danger)" : "var(--surface)",
             color: groupMuted ? "#fff" : "var(--text)",
             fontSize: "1.1rem",
             cursor: "pointer",
@@ -237,13 +212,13 @@ export default function GroupCallOverlay() {
         {groupIsVideo && (
           <button
             onClick={toggleGroupCamera}
-            title={groupCameraOff ? "Réactiver la caméra" : "Couper la caméra"}
+            title={groupCameraOff ? t("groupCallOverlay.enableCamera") : t("groupCallOverlay.disableCamera")}
             style={{
               width: 48,
               height: 48,
               borderRadius: "50%",
               border: groupCameraOff ? "none" : "1px solid var(--border)",
-              background: groupCameraOff ? "var(--danger)" : "#fff",
+              background: groupCameraOff ? "var(--danger)" : "var(--surface)",
               color: groupCameraOff ? "#fff" : "var(--text)",
               fontSize: "1.1rem",
               cursor: "pointer",
@@ -254,7 +229,7 @@ export default function GroupCallOverlay() {
         )}
         <button
           onClick={leaveGroupCall}
-          title="Quitter l'appel"
+          title={t("groupCallOverlay.leave")}
           style={{ width: 56, height: 56, borderRadius: "50%", border: "none", background: "var(--danger)", color: "#fff", fontSize: "1.4rem", cursor: "pointer" }}
         >
           ✕

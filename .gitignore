@@ -7,3 +7,6 @@ build/
 backend/generated/
 frontend/node_modules/
 backend/node_modules/
+
+# Outillage local (tunnel Cloudflare) : binaire téléchargeable + logs, pas du code applicatif.
+tools/
