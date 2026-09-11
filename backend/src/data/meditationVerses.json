@@ -1,0 +1,479 @@
+[
+  {
+    "bookKey": "Psaumes",
+    "chapter": 23,
+    "verse": 1,
+    "textFr": "Cantique de David. L’Eternel est mon berger : je ne manquerai de rien.",
+    "textEn": "The LORD is my shepherd; I shall not want.",
+    "referenceFr": "Psaumes 23:1",
+    "referenceEn": "Psalms 23:1"
+  },
+  {
+    "bookKey": "Jean",
+    "chapter": 3,
+    "verse": 16,
+    "textFr": "Car Dieu a tant aimé le monde qu’il a donné son Fils unique, afin que quiconque croit en lui ne périsse point, mais qu’il ait la vie éternelle.",
+    "textEn": "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.",
+    "referenceFr": "Jean 3:16",
+    "referenceEn": "John 3:16"
+  },
+  {
+    "bookKey": "Philippiens",
+    "chapter": 4,
+    "verse": 13,
+    "textFr": "Je puis tout par celui qui me fortifie.",
+    "textEn": "I can do all things through Christ which strengtheneth me.",
+    "referenceFr": "Philippiens 4:13",
+    "referenceEn": "Philippians 4:13"
+  },
+  {
+    "bookKey": "Jeremie",
+    "chapter": 29,
+    "verse": 11,
+    "textFr": "Car je connais les projets que j’ai formés sur vous, dit l’Eternel, projets de paix et non de malheur, afin de vous donner un avenir et de l’espérance.",
+    "textEn": "For I know the thoughts that I think toward you, saith the LORD, thoughts of peace, and not of evil, to give you an expected end.",
+    "referenceFr": "Jérémie 29:11",
+    "referenceEn": "Jeremiah 29:11"
+  },
+  {
+    "bookKey": "Romains",
+    "chapter": 8,
+    "verse": 28,
+    "textFr": "Nous savons, du reste, que toutes choses concourent au bien de ceux qui aiment Dieu, de ceux qui sont appelés selon son dessein.",
+    "textEn": "And we know that all things work together for good to them that love God, to them who are the called according to his purpose.",
+    "referenceFr": "Romains 8:28",
+    "referenceEn": "Romans 8:28"
+  },
+  {
+    "bookKey": "Esaie",
+    "chapter": 41,
+    "verse": 10,
+    "textFr": "Ne crains rien, car je suis avec toi ; Ne promène pas des regards inquiets, car je suis ton Dieu ; Je te fortifie, je viens à ton secours, Je te soutiens de ma droite triomphante.",
+    "textEn": "Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee; yea, I will uphold thee with the right hand of my righteousness.",
+    "referenceFr": "Ésaïe 41:10",
+    "referenceEn": "Isaiah 41:10"
+  },
+  {
+    "bookKey": "Matthieu",
+    "chapter": 11,
+    "verse": 28,
+    "textFr": "Venez à moi, vous tous qui êtes fatigués et chargés, et je vous donnerai du repos.",
+    "textEn": "Come unto me, all ye that labour and are heavy laden, and I will give you rest.",
+    "referenceFr": "Matthieu 11:28",
+    "referenceEn": "Matthew 11:28"
+  },
+  {
+    "bookKey": "Psaumes",
+    "chapter": 46,
+    "verse": 1,
+    "textFr": "Au chef des chantres. Des fils de Koré. Sur alamoth. Cantique. Dieu est pour nous un refuge et un appui, Un secours qui ne manque jamais dans la détresse.",
+    "textEn": "God is our refuge and strength, a very present help in trouble.",
+    "referenceFr": "Psaumes 46:1",
+    "referenceEn": "Psalms 46:1"
+  },
+  {
+    "bookKey": "Proverbes",
+    "chapter": 3,
+    "verse": 5,
+    "textFr": "Confie-toi en l’Eternel de tout ton coeur, Et ne t’appuie pas sur ta sagesse ;",
+    "textEn": "Trust in the LORD with all thine heart; and lean not unto thine own understanding.",
+    "referenceFr": "Proverbes 3:5",
+    "referenceEn": "Proverbs 3:5"
+  },
+  {
+    "bookKey": "Proverbes",
+    "chapter": 3,
+    "verse": 6,
+    "textFr": "Reconnais-le dans toutes tes voies, Et il aplanira tes sentiers.",
+    "textEn": "In all thy ways acknowledge him, and he shall direct thy paths.",
+    "referenceFr": "Proverbes 3:6",
+    "referenceEn": "Proverbs 3:6"
+  },
+  {
+    "bookKey": "Philippiens",
+    "chapter": 4,
+    "verse": 6,
+    "textFr": "Ne vous inquiétez de rien ; mais en toute chose faites connaître vos besoins à Dieu par des prières et des supplications, avec des actions de grâces.",
+    "textEn": "Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God.",
+    "referenceFr": "Philippiens 4:6",
+    "referenceEn": "Philippians 4:6"
+  },
+  {
+    "bookKey": "Philippiens",
+    "chapter": 4,
+    "verse": 7,
+    "textFr": "Et la paix de Dieu, qui surpasse toute intelligence, gardera vos coeurs et vos pensées en Jésus-Christ.",
+    "textEn": "And the peace of God, which passeth all understanding, shall keep your hearts and minds through Christ Jesus.",
+    "referenceFr": "Philippiens 4:7",
+    "referenceEn": "Philippians 4:7"
+  },
+  {
+    "bookKey": "Josue",
+    "chapter": 1,
+    "verse": 9,
+    "textFr": "Ne t’ai-je pas donné cet ordre : Fortifie-toi et prends courage? Ne t’effraie point et ne t’épouvante point, car l’Eternel, ton Dieu, est avec toi dans tout ce que tu entreprendras.",
+    "textEn": "Have not I commanded thee? Be strong and of a good courage; be not afraid, neither be thou dismayed: for the LORD thy God is with thee whithersoever thou goest.",
+    "referenceFr": "Josué 1:9",
+    "referenceEn": "Joshua 1:9"
+  },
+  {
+    "bookKey": "Psaumes",
+    "chapter": 34,
+    "verse": 18,
+    "textFr": "L’Eternel est près de ceux qui ont le coeur brisé, Et il sauve ceux qui ont l’esprit dans l’abattement.",
+    "textEn": "The LORD is nigh unto them that are of a broken heart; and saveth such as be of a contrite spirit.",
+    "referenceFr": "Psaumes 34:18",
+    "referenceEn": "Psalms 34:18"
+  },
+  {
+    "bookKey": "Psaumes",
+    "chapter": 27,
+    "verse": 1,
+    "textFr": "De David. L’Eternel est ma lumière et mon salut : De qui aurais-je crainte ? L’Eternel est le soutien de ma vie : De qui aurais-je peur ?",
+    "textEn": "The LORD is my light and my salvation; whom shall I fear? the LORD is the strength of my life; of whom shall I be afraid?",
+    "referenceFr": "Psaumes 27:1",
+    "referenceEn": "Psalms 27:1"
+  },
+  {
+    "bookKey": "Psaumes",
+    "chapter": 121,
+    "verse": 2,
+    "textFr": "Le secours me vient de l’Eternel, Qui a fait les cieux et la terre.",
+    "textEn": "My help cometh from the LORD, which made heaven and earth.",
+    "referenceFr": "Psaumes 121:2",
+    "referenceEn": "Psalms 121:2"
+  },
+  {
+    "bookKey": "2Corinthiens",
+    "chapter": 12,
+    "verse": 9,
+    "textFr": "et il m’a dit : Ma grâce te suffit, car ma puissance s’accomplit dans la faiblesse. Je me glorifierai donc bien plus volontiers de mes faiblesses, afin que la puissance de Christ repose sur moi.",
+    "textEn": "And he said unto me, My grace is sufficient for thee: for my strength is made perfect in weakness. Most gladly therefore will I rather glory in my infirmities, that the power of Christ may rest upon me.",
+    "referenceFr": "2 Corinthiens 12:9",
+    "referenceEn": "2 Corinthians 12:9"
+  },
+  {
+    "bookKey": "Galates",
+    "chapter": 5,
+    "verse": 22,
+    "textFr": "Mais le fruit de l’Esprit, c’est l’amour, la joie, la paix, la patience, la bonté, la bénignité, la fidélité,",
+    "textEn": "But the fruit of the Spirit is love, joy, peace, longsuffering, gentleness, goodness, faith,",
+    "referenceFr": "Galates 5:22",
+    "referenceEn": "Galatians 5:22"
+  },
+  {
+    "bookKey": "1Jean",
+    "chapter": 4,
+    "verse": 18,
+    "textFr": "La crainte n’est pas dans l’amour, mais l’amour parfait bannit la crainte ; car la crainte suppose un châtiment, et celui qui craint n’est pas parfait dans l’amour.",
+    "textEn": "There is no fear in love; but perfect love casteth out fear: because fear hath torment. He that feareth is not made perfect in love.",
+    "referenceFr": "1 Jean 4:18",
+    "referenceEn": "1 John 4:18"
+  },
+  {
+    "bookKey": "1Jean",
+    "chapter": 4,
+    "verse": 19,
+    "textFr": "Pour nous, nous l’aimons, parce qu’il nous a aimés le premier.",
+    "textEn": "We love him, because he first loved us.",
+    "referenceFr": "1 Jean 4:19",
+    "referenceEn": "1 John 4:19"
+  },
+  {
+    "bookKey": "Colossiens",
+    "chapter": 3,
+    "verse": 15,
+    "textFr": "Et que la paix de Christ, à laquelle vous avez été appelés pour former un seul corps, règne dans vos coeurs. Et soyez reconnaissants.",
+    "textEn": "And let the peace of God rule in your hearts, to the which also ye are called in one body; and be ye thankful.",
+    "referenceFr": "Colossiens 3:15",
+    "referenceEn": "Colossians 3:15"
+  },
+  {
+    "bookKey": "Hebreux",
+    "chapter": 11,
+    "verse": 1,
+    "textFr": "Or la foi est une ferme assurance des choses qu’on espère, une démonstration de celles qu’on ne voit pas.",
+    "textEn": "Now faith is the substance of things hoped for, the evidence of things not seen.",
+    "referenceFr": "Hébreux 11:1",
+    "referenceEn": "Hebrews 11:1"
+  },
+  {
+    "bookKey": "Jacques",
+    "chapter": 1,
+    "verse": 5,
+    "textFr": "Si quelqu’un d’entre vous manque de sagesse, qu’il la demande à Dieu, qui donne à tous simplement et sans reproche, et elle lui sera donnée.",
+    "textEn": "If any of you lack wisdom, let him ask of God, that giveth to all men liberally, and upbraideth not; and it shall be given him.",
+    "referenceFr": "Jacques 1:5",
+    "referenceEn": "James 1:5"
+  },
+  {
+    "bookKey": "Romains",
+    "chapter": 15,
+    "verse": 13,
+    "textFr": "Que le Dieu de l’espérance vous remplisse de toute joie et de toute paix dans la foi, pour que vous abondiez en espérance, par la puissance du Saint-Esprit !",
+    "textEn": "Now the God of hope fill you with all joy and peace in believing, that ye may abound in hope, through the power of the Holy Ghost.",
+    "referenceFr": "Romains 15:13",
+    "referenceEn": "Romans 15:13"
+  },
+  {
+    "bookKey": "Psaumes",
+    "chapter": 55,
+    "verse": 22,
+    "textFr": "Remets ton sort à l’Eternel, et il te soutiendra, Il ne laissera jamais chanceler le juste.",
+    "textEn": "Cast thy burden upon the LORD, and he shall sustain thee: he shall never suffer the righteous to be moved.",
+    "referenceFr": "Psaumes 55:22",
+    "referenceEn": "Psalms 55:22"
+  },
+  {
+    "bookKey": "Psaumes",
+    "chapter": 91,
+    "verse": 1,
+    "textFr": "Celui qui demeure sous l’abri du Très-Haut Repose à l’ombre du Tout Puissant.",
+    "textEn": "He that dwelleth in the secret place of the most High shall abide under the shadow of the Almighty.",
+    "referenceFr": "Psaumes 91:1",
+    "referenceEn": "Psalms 91:1"
+  },
+  {
+    "bookKey": "Psaumes",
+    "chapter": 118,
+    "verse": 24,
+    "textFr": "C’est ici la journée que l’Eternel a faite : Qu’elle soit pour nous un sujet d’allégresse et de joie !",
+    "textEn": "This is the day which the LORD hath made; we will rejoice and be glad in it.",
+    "referenceFr": "Psaumes 118:24",
+    "referenceEn": "Psalms 118:24"
+  },
+  {
+    "bookKey": "Ecclesiaste",
+    "chapter": 3,
+    "verse": 1,
+    "textFr": "Il y a un temps pour tout, un temps pour toute chose sous les cieux :",
+    "textEn": "To every thing there is a season, and a time to every purpose under the heaven:",
+    "referenceFr": "Ecclésiaste 3:1",
+    "referenceEn": "Ecclesiastes 3:1"
+  },
+  {
+    "bookKey": "Esaie",
+    "chapter": 40,
+    "verse": 31,
+    "textFr": "Mais ceux qui se confient en l’Eternel renouvellent leur force. Ils prennent le vol comme les aigles ; Ils courent, et ne se lassent point, Ils marchent, et ne se fatiguent point.",
+    "textEn": "But they that wait upon the LORD shall renew their strength; they shall mount up with wings as eagles; they shall run, and not be weary; and they shall walk, and not faint.",
+    "referenceFr": "Ésaïe 40:31",
+    "referenceEn": "Isaiah 40:31"
+  },
+  {
+    "bookKey": "Esaie",
+    "chapter": 26,
+    "verse": 3,
+    "textFr": "A celui qui est ferme dans ses sentiments Tu assures la paix, la paix, Parce qu’il se confie en toi.",
+    "textEn": "Thou wilt keep him in perfect peace, whose mind is stayed on thee: because he trusteth in thee.",
+    "referenceFr": "Ésaïe 26:3",
+    "referenceEn": "Isaiah 26:3"
+  },
+  {
+    "bookKey": "Matthieu",
+    "chapter": 6,
+    "verse": 34,
+    "textFr": "Ne vous inquiétez donc pas du lendemain ; car le lendemain aura soin de lui-même. A chaque jour suffit sa peine.",
+    "textEn": "Take therefore no thought for the morrow: for the morrow shall take thought for the things of itself. Sufficient unto the day is the evil thereof.",
+    "referenceFr": "Matthieu 6:34",
+    "referenceEn": "Matthew 6:34"
+  },
+  {
+    "bookKey": "Matthieu",
+    "chapter": 5,
+    "verse": 16,
+    "textFr": "Que votre lumière luise ainsi devant les hommes, afin qu’ils voient vos bonnes oeuvres, et qu’ils glorifient votre Père qui est dans les cieux.",
+    "textEn": "Let your light so shine before men, that they may see your good works, and glorify your Father which is in heaven.",
+    "referenceFr": "Matthieu 5:16",
+    "referenceEn": "Matthew 5:16"
+  },
+  {
+    "bookKey": "Jean",
+    "chapter": 14,
+    "verse": 27,
+    "textFr": "Je vous laisse la paix, je vous donne ma paix. Je ne vous donne pas comme le monde donne. Que votre coeur ne se trouble point, et ne s’alarme point.",
+    "textEn": "Peace I leave with you, my peace I give unto you: not as the world giveth, give I unto you. Let not your heart be troubled, neither let it be afraid.",
+    "referenceFr": "Jean 14:27",
+    "referenceEn": "John 14:27"
+  },
+  {
+    "bookKey": "Jean",
+    "chapter": 8,
+    "verse": 12,
+    "textFr": "Jésus leur parla de nouveau, et dit : Je suis la lumière du monde ; celui qui me suit ne marchera pas dans les ténèbres, mais il aura la lumière de la vie.",
+    "textEn": "Then spake Jesus again unto them, saying, I am the light of the world: he that followeth me shall not walk in darkness, but shall have the light of life.",
+    "referenceFr": "Jean 8:12",
+    "referenceEn": "John 8:12"
+  },
+  {
+    "bookKey": "Jean",
+    "chapter": 16,
+    "verse": 33,
+    "textFr": "Je vous ai dit ces choses, afin que vous ayez la paix en moi. Vous aurez des tribulations dans le monde ; mais prenez courage, j’ai vaincu le monde.",
+    "textEn": "These things I have spoken unto you, that in me ye might have peace. In the world ye shall have tribulation: but be of good cheer; I have overcome the world.",
+    "referenceFr": "Jean 16:33",
+    "referenceEn": "John 16:33"
+  },
+  {
+    "bookKey": "Luc",
+    "chapter": 1,
+    "verse": 37,
+    "textFr": "Car rien n’est impossible à Dieu.",
+    "textEn": "For with God nothing shall be impossible.",
+    "referenceFr": "Luc 1:37",
+    "referenceEn": "Luke 1:37"
+  },
+  {
+    "bookKey": "Marc",
+    "chapter": 11,
+    "verse": 24,
+    "textFr": "C’est pourquoi je vous dis : Tout ce que vous demanderez en priant, croyez que vous l’avez reçu, et vous le verrez s’accomplir.",
+    "textEn": "Therefore I say unto you, What things soever ye desire, when ye pray, believe that ye receive them, and ye shall have them.",
+    "referenceFr": "Marc 11:24",
+    "referenceEn": "Mark 11:24"
+  },
+  {
+    "bookKey": "1Thessaloniciens",
+    "chapter": 5,
+    "verse": 18,
+    "textFr": "Rendez grâces en toutes choses, car c’est à votre égard la volonté de Dieu en Jésus-Christ.",
+    "textEn": "In every thing give thanks: for this is the will of God in Christ Jesus concerning you.",
+    "referenceFr": "1 Thessaloniciens 5:18",
+    "referenceEn": "1 Thessalonians 5:18"
+  },
+  {
+    "bookKey": "1Pierre",
+    "chapter": 5,
+    "verse": 7,
+    "textFr": "et déchargez-vous sur lui de tous vos soucis, car lui-même prend soin de vous.",
+    "textEn": "Casting all your care upon him; for he careth for you.",
+    "referenceFr": "1 Pierre 5:7",
+    "referenceEn": "1 Peter 5:7"
+  },
+  {
+    "bookKey": "2Timothee",
+    "chapter": 1,
+    "verse": 7,
+    "textFr": "Car ce n’est pas un esprit de timidité que Dieu nous a donné, mais un esprit de force, d’amour et de sagesse.",
+    "textEn": "For God hath not given us the spirit of fear; but of power, and of love, and of a sound mind.",
+    "referenceFr": "2 Timothée 1:7",
+    "referenceEn": "2 Timothy 1:7"
+  },
+  {
+    "bookKey": "Nombres",
+    "chapter": 6,
+    "verse": 24,
+    "textFr": "Que l’Eternel te bénisse, et qu’il te garde !",
+    "textEn": "The LORD bless thee, and keep thee:",
+    "referenceFr": "Nombres 6:24",
+    "referenceEn": "Numbers 6:24"
+  },
+  {
+    "bookKey": "Sophonie",
+    "chapter": 3,
+    "verse": 17,
+    "textFr": "L’Eternel, ton Dieu, est au milieu de toi, comme un héros qui sauve ; Il fera de toi sa plus grande joie ; Il gardera le silence dans son amour ; Il aura pour toi des transports d’allégresse.",
+    "textEn": "The LORD thy God in the midst of thee is mighty; he will save, he will rejoice over thee with joy; he will rest in his love, he will joy over thee with singing.",
+    "referenceFr": "Sophonie 3:17",
+    "referenceEn": "Zephaniah 3:17"
+  },
+  {
+    "bookKey": "Lamentations",
+    "chapter": 3,
+    "verse": 23,
+    "textFr": "Elles se renouvellent chaque matin. Oh ! que ta fidélité est grande !",
+    "textEn": "They are new every morning: great is thy faithfulness.",
+    "referenceFr": "Lamentations 3:23",
+    "referenceEn": "Lamentations 3:23"
+  },
+  {
+    "bookKey": "Psaumes",
+    "chapter": 37,
+    "verse": 4,
+    "textFr": "Fais de l’Eternel tes délices, Et il te donnera ce que ton coeur désire.",
+    "textEn": "Delight thyself also in the LORD: and he shall give thee the desires of thine heart.",
+    "referenceFr": "Psaumes 37:4",
+    "referenceEn": "Psalms 37:4"
+  },
+  {
+    "bookKey": "Psaumes",
+    "chapter": 139,
+    "verse": 14,
+    "textFr": "Je te loue de ce que je suis une créature si merveilleuse. Tes oeuvres sont admirables, Et mon âme le reconnaît bien.",
+    "textEn": "I will praise thee; for I am fearfully and wonderfully made: marvellous are thy works; and that my soul knoweth right well.",
+    "referenceFr": "Psaumes 139:14",
+    "referenceEn": "Psalms 139:14"
+  },
+  {
+    "bookKey": "Psaumes",
+    "chapter": 100,
+    "verse": 5,
+    "textFr": "Car l’Eternel est bon ; sa bonté dure toujours, Et sa fidélité de génération en génération.",
+    "textEn": "For the LORD is good; his mercy is everlasting; and his truth endureth to all generations.",
+    "referenceFr": "Psaumes 100:5",
+    "referenceEn": "Psalms 100:5"
+  },
+  {
+    "bookKey": "Apocalypse",
+    "chapter": 21,
+    "verse": 4,
+    "textFr": "Il essuiera toute larme de leurs yeux, et la mort ne sera plus, et il n’y aura plus ni deuil, ni cri, ni douleur, car les premières choses ont disparu.",
+    "textEn": "And God shall wipe away all tears from their eyes; and there shall be no more death, neither sorrow, nor crying, neither shall there be any more pain: for the former things are passed away.",
+    "referenceFr": "Apocalypse 21:4",
+    "referenceEn": "Revelation 21:4"
+  },
+  {
+    "bookKey": "Romains",
+    "chapter": 12,
+    "verse": 2,
+    "textFr": "Ne vous conformez pas au siècle présent, mais soyez transformés par le renouvellement de l’intelligence, afin que vous discerniez quelle est la volonté de Dieu, ce qui est bon, agréable et parfait.",
+    "textEn": "And be not conformed to this world: but be ye transformed by the renewing of your mind, that ye may prove what is that good, and acceptable, and perfect, will of God.",
+    "referenceFr": "Romains 12:2",
+    "referenceEn": "Romans 12:2"
+  },
+  {
+    "bookKey": "Ephesiens",
+    "chapter": 2,
+    "verse": 8,
+    "textFr": "Car c’est par la grâce que vous êtes sauvés, par le moyen de la foi. Et cela ne vient pas de vous, c’est le don de Dieu.",
+    "textEn": "For by grace are ye saved through faith; and that not of yourselves: it is the gift of God:",
+    "referenceFr": "Éphésiens 2:8",
+    "referenceEn": "Ephesians 2:8"
+  },
+  {
+    "bookKey": "Ephesiens",
+    "chapter": 3,
+    "verse": 20,
+    "textFr": "Or, à celui qui peut faire, par la puissance qui agit en nous, infiniment au delà de tout ce que nous demandons ou pensons,",
+    "textEn": "Now unto him that is able to do exceeding abundantly above all that we ask or think, according to the power that worketh in us,",
+    "referenceFr": "Éphésiens 3:20",
+    "referenceEn": "Ephesians 3:20"
+  },
+  {
+    "bookKey": "1Corinthiens",
+    "chapter": 13,
+    "verse": 4,
+    "textFr": "La charité est patiente, elle est pleine de bonté ; la charité n’est point envieuse ; la charité ne se vante point, elle ne s’enfle point d’orgueil,",
+    "textEn": "Charity suffereth long, and is kind; charity envieth not; charity vaunteth not itself, is not puffed up,",
+    "referenceFr": "1 Corinthiens 13:4",
+    "referenceEn": "1 Corinthians 13:4"
+  },
+  {
+    "bookKey": "1Corinthiens",
+    "chapter": 13,
+    "verse": 13,
+    "textFr": "Maintenant donc ces trois choses demeurent : la foi, l’espérance, la charité ; mais la plus grande de ces choses, c’est la charité.",
+    "textEn": "And now abideth faith, hope, charity, these three; but the greatest of these is charity.",
+    "referenceFr": "1 Corinthiens 13:13",
+    "referenceEn": "1 Corinthians 13:13"
+  },
+  {
+    "bookKey": "Deuteronome",
+    "chapter": 31,
+    "verse": 6,
+    "textFr": "Fortifiez-vous et ayez du courage! Ne craignez point et ne soyez point effrayés devant eux; car l'Éternel, ton Dieu, marchera lui-même avec toi, il ne te délaissera point, il ne t'abandonnera point.",
+    "textEn": "Be strong and of a good courage, fear not, nor be afraid of them: for the LORD thy God, he it is that doth go with thee; he will not fail thee, nor forsake thee.",
+    "referenceFr": "Deutéronome 31:6",
+    "referenceEn": "Deuteronomy 31:6"
+  }
+]

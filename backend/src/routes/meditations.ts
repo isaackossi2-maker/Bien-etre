@@ -5,9 +5,71 @@ import { authenticate, requireRole } from "../middleware/auth";
 import { validateBody } from "../middleware/validate";
 import { logAction } from "../utils/log";
 import { userSummarySelect } from "../utils/selects";
+import meditationVerses from "../data/meditationVerses.json";
 
 const router = Router();
 router.use(authenticate);
+
+const DAILY_VERSE_ID = "current";
+const DAILY_VERSE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function pickRandomVerse() {
+  const verse = meditationVerses[Math.floor(Math.random() * meditationVerses.length)];
+  return {
+    isCustom: false,
+    textFr: verse.textFr,
+    textEn: verse.textEn,
+    referenceFr: verse.referenceFr,
+    referenceEn: verse.referenceEn,
+    customText: null,
+    customReference: null,
+  };
+}
+
+// Renvoie le verset du jour courant, en le renouvelant automatiquement (nouveau tirage
+// aléatoire) si plus de 24h se sont écoulées depuis la dernière mise à jour — qu'elle soit
+// automatique ou personnalisée par un admin.
+async function getOrRefreshDailyVerse() {
+  const existing = await prisma.dailyVerse.findUnique({ where: { id: DAILY_VERSE_ID } });
+  const expired = !existing || Date.now() - existing.updatedAt.getTime() >= DAILY_VERSE_TTL_MS;
+  if (!expired) return existing;
+  return prisma.dailyVerse.upsert({
+    where: { id: DAILY_VERSE_ID },
+    update: pickRandomVerse(),
+    create: { id: DAILY_VERSE_ID, ...pickRandomVerse() },
+  });
+}
+
+router.get("/daily-verse", async (_req, res) => {
+  const verse = await getOrRefreshDailyVerse();
+  res.json(verse);
+});
+
+const dailyVerseSchema = z.object({
+  customText: z.string().min(1),
+  customReference: z.string().optional(),
+});
+
+router.put("/daily-verse", requireRole("ADMIN"), validateBody(dailyVerseSchema), async (req, res) => {
+  const { customText, customReference } = req.body as z.infer<typeof dailyVerseSchema>;
+  const verse = await prisma.dailyVerse.upsert({
+    where: { id: DAILY_VERSE_ID },
+    update: { isCustom: true, customText, customReference: customReference ?? null, textFr: null, textEn: null, referenceFr: null, referenceEn: null },
+    create: { id: DAILY_VERSE_ID, isCustom: true, customText, customReference: customReference ?? null },
+  });
+  await logAction(req.user!.id, "DAILY_VERSE_UPDATE", "Personnalisation du verset du jour");
+  res.json(verse);
+});
+
+router.delete("/daily-verse", requireRole("ADMIN"), async (req, res) => {
+  const verse = await prisma.dailyVerse.upsert({
+    where: { id: DAILY_VERSE_ID },
+    update: pickRandomVerse(),
+    create: { id: DAILY_VERSE_ID, ...pickRandomVerse() },
+  });
+  await logAction(req.user!.id, "DAILY_VERSE_RESET", "Retour au verset du jour automatique");
+  res.json(verse);
+});
 
 router.get("/", async (req, res) => {
   const meditations = await prisma.meditation.findMany({

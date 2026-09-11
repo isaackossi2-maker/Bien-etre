@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { Meditation } from "../../types";
 import { useTranslatedText, useTranslatedTexts } from "../../i18n/useTranslatedContent";
+import DailyVerseCard from "../../components/DailyVerseCard";
 
 export default function UserMeditations() {
   const { t } = useTranslation();
@@ -23,6 +24,8 @@ export default function UserMeditations() {
       <div className="page-header">
         <h1>{t("userMeditations.title")}</h1>
       </div>
+
+      <DailyVerseCard />
 
       {meditations.length === 0 ? (
         <p className="empty-state">{t("userMeditations.noMeditations")}</p>

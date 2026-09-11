@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Users } from "lucide-react";
 import { useCall } from "./CallContext";
 import { useAuth } from "../auth/AuthContext";
 import { useRingtone } from "./useRingtone";
@@ -39,15 +40,14 @@ function ParticipantTile({
         justifyContent: "center",
       }}
     >
-      {hasVideoTrack ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={isSelf}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-      ) : (
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={isSelf}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: hasVideoTrack ? "block" : "none" }}
+      />
+      {!hasVideoTrack && (
         <div
           style={{
             width: 64,
@@ -133,12 +133,10 @@ export default function GroupCallOverlay() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: "2.2rem",
-            fontWeight: 700,
             marginBottom: 16,
           }}
         >
-          👥
+          <Users size={44} />
         </div>
         <h2 style={{ margin: "0 0 4px" }}>{groupCallInfo?.groupName}</h2>
         <p style={{ color: "var(--text-muted)", marginTop: 0 }}>
@@ -172,7 +170,9 @@ export default function GroupCallOverlay() {
   return (
     <div style={overlayBase}>
       <div style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: "0 0 2px" }}>👥 {groupCallInfo?.groupName}</h2>
+        <h2 style={{ margin: "0 0 2px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <Users size={20} /> {groupCallInfo?.groupName}
+        </h2>
         <p style={{ color: "var(--text-muted)", margin: 0 }}>{t("groupCallOverlay.participants", { count: others.length + 1 })}</p>
       </div>
 
@@ -203,11 +203,13 @@ export default function GroupCallOverlay() {
             border: groupMuted ? "none" : "1px solid var(--border)",
             background: groupMuted ? "var(--danger)" : "var(--surface)",
             color: groupMuted ? "#fff" : "var(--text)",
-            fontSize: "1.1rem",
             cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {groupMuted ? "🔇" : "🎙️"}
+          {groupMuted ? <MicOff size={20} /> : <Mic size={20} />}
         </button>
         {groupIsVideo && (
           <button
@@ -222,17 +224,31 @@ export default function GroupCallOverlay() {
               color: groupCameraOff ? "#fff" : "var(--text)",
               fontSize: "1.1rem",
               cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            {groupCameraOff ? "📷" : "🎥"}
+            {groupCameraOff ? <VideoOff size={20} /> : <Video size={20} />}
           </button>
         )}
         <button
           onClick={leaveGroupCall}
           title={t("groupCallOverlay.leave")}
-          style={{ width: 56, height: 56, borderRadius: "50%", border: "none", background: "var(--danger)", color: "#fff", fontSize: "1.4rem", cursor: "pointer" }}
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            border: "none",
+            background: "var(--danger)",
+            color: "#fff",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          ✕
+          <PhoneOff size={22} />
         </button>
       </div>
     </div>

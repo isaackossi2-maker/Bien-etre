@@ -50,6 +50,18 @@ export interface Meditation {
   _count?: { views: number };
 }
 
+export interface DailyVerse {
+  id: string;
+  isCustom: boolean;
+  textFr?: string | null;
+  textEn?: string | null;
+  referenceFr?: string | null;
+  referenceEn?: string | null;
+  customText?: string | null;
+  customReference?: string | null;
+  updatedAt: string;
+}
+
 export interface MeditationView {
   id: string;
   viewedAt: string;

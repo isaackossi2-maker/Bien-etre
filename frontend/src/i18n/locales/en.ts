@@ -224,6 +224,15 @@ export default {
     close: "Close",
   },
 
+  dailyVerse: {
+    title: "Verse of the day",
+    customize: "Customize",
+    backToAutomatic: "Back to automatic verse",
+    verseText: "Verse text",
+    reference: "Reference (optional)",
+    referencePlaceholder: "E.g.: Psalm 23:1",
+  },
+
   userMessages: {
     title: "Messages",
     subtitle: "Choose an administrator to ask your questions.",
@@ -322,6 +331,7 @@ export default {
     linkCopied: "Link copied!",
     participants: "{{count}} participant(s)",
     endForEveryone: "End for everyone",
+    moreOptions: "More options",
     confirmEnd: "End this meeting for everyone?",
     leave: "Leave the meeting",
     loading: "Loading...",

@@ -5,6 +5,7 @@ import { Meditation, MeditationView } from "../../types";
 import { formatDateTime } from "../../utils/date";
 import { useCrudList } from "../../hooks/useCrudList";
 import { useTranslatedTexts } from "../../i18n/useTranslatedContent";
+import DailyVerseCard from "../../components/DailyVerseCard";
 
 export default function AdminMeditations() {
   const { t, i18n } = useTranslation();
@@ -57,6 +58,8 @@ export default function AdminMeditations() {
           {showForm ? t("common.cancel") : t("adminMeditations.newMeditation")}
         </button>
       </div>
+
+      <DailyVerseCard editable />
 
       {showForm && (
         <div className="card" style={{ marginBottom: 20 }}>

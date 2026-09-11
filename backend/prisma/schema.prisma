@@ -277,6 +277,21 @@ model TranslationCache {
   @@unique([sourceHash, targetLang])
 }
 
+// Verset du jour affiché sur les pages Méditations (admin + utilisateur) : une seule ligne
+// partagée par toute l'application (id fixe "current"), qui se renouvelle automatiquement
+// toutes les 24h sauf si l'admin l'a personnalisé (voir routes/meditations.ts).
+model DailyVerse {
+  id              String   @id @default("current")
+  isCustom        Boolean  @default(false)
+  textFr          String?  @db.Text
+  textEn          String?  @db.Text
+  referenceFr     String?
+  referenceEn     String?
+  customText      String?  @db.Text
+  customReference String?
+  updatedAt       DateTime @default(now()) @updatedAt
+}
+
 model Log {
   id        String   @id @default(uuid())
   userId    String?

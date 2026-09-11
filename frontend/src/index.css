@@ -863,6 +863,38 @@ input, textarea, select {
   line-height: 1;
 }
 
+.meet-more-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  background: #3c4043;
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 10;
+}
+
+.meet-more-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  background: transparent;
+  color: #e8eaed;
+  cursor: pointer;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.meet-more-menu button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .meet-reaction-picker button:hover {
   background: rgba(255, 255, 255, 0.12);
 }

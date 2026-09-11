@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Mic, MicOff, Video, VideoOff, PhoneOff } from "lucide-react";
 import { useCall } from "./CallContext";
 import { useAuth } from "../auth/AuthContext";
 import { useRingtone } from "./useRingtone";
@@ -222,11 +223,13 @@ export default function CallOverlay() {
             border: muted ? "none" : "1px solid var(--border)",
             background: muted ? "var(--danger)" : "var(--surface)",
             color: muted ? "#fff" : "var(--text)",
-            fontSize: "1.1rem",
             cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {muted ? "🔇" : "🎙️"}
+          {muted ? <MicOff size={20} /> : <Mic size={20} />}
         </button>
         {isVideo && (
           <button
@@ -239,19 +242,32 @@ export default function CallOverlay() {
               border: cameraOff ? "none" : "1px solid var(--border)",
               background: cameraOff ? "var(--danger)" : "var(--surface)",
               color: cameraOff ? "#fff" : "var(--text)",
-              fontSize: "1.1rem",
               cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            {cameraOff ? "📷" : "🎥"}
+            {cameraOff ? <VideoOff size={20} /> : <Video size={20} />}
           </button>
         )}
         <button
           onClick={hangUp}
           title={t("callOverlay.hangUp")}
-          style={{ width: 56, height: 56, borderRadius: "50%", border: "none", background: "var(--danger)", color: "#fff", fontSize: "1.4rem", cursor: "pointer" }}
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            border: "none",
+            background: "var(--danger)",
+            color: "#fff",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          ✕
+          <PhoneOff size={22} />
         </button>
       </div>
     </div>

@@ -7,6 +7,23 @@ import { ICE_SERVERS, useCall } from "../call/CallContext";
 import { Meeting } from "../types";
 import Avatar from "../components/Avatar";
 import { useTranslatedText } from "../i18n/useTranslatedContent";
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  ScreenShare,
+  ScreenShareOff,
+  Hand,
+  Smile,
+  MoreVertical,
+  PhoneOff,
+  MessageSquare,
+  Users,
+  Info,
+  X,
+  Ban,
+} from "lucide-react";
 
 type RoomState = "loading" | "not-found" | "ended" | "lobby" | "active";
 
@@ -81,19 +98,24 @@ function Tile({
 
   return (
     <div className="meet-tile" style={large ? { aspectRatio: "auto" } : undefined}>
-      {hasVideoTrack ? (
-        <video ref={videoRef} autoPlay playsInline muted={isSelf} />
-      ) : (
-        <div className="meet-tile-avatar">{name.charAt(0).toUpperCase()}</div>
-      )}
+      <video ref={videoRef} autoPlay playsInline muted={isSelf} style={{ display: hasVideoTrack ? "block" : "none" }} />
+      {!hasVideoTrack && <div className="meet-tile-avatar">{name.charAt(0).toUpperCase()}</div>}
       {reaction && (
         <div className="meet-tile-reaction" key={reaction}>
           {reaction}
         </div>
       )}
       <div className="meet-tile-badges">
-        {presenting && <span className="meet-tile-badge" title={t("reunionRoom.presenting")}>🖥️</span>}
-        {handRaised && <span className="meet-tile-badge" title={t("reunionRoom.raiseHand")}>✋</span>}
+        {presenting && (
+          <span className="meet-tile-badge" title={t("reunionRoom.presenting")}>
+            <ScreenShare size={14} />
+          </span>
+        )}
+        {handRaised && (
+          <span className="meet-tile-badge" title={t("reunionRoom.raiseHand")}>
+            <Hand size={14} />
+          </span>
+        )}
       </div>
       <div className="meet-tile-label">
         {name}
@@ -130,6 +152,7 @@ export default function ReunionRoom() {
   const [handRaised, setHandRaised] = useState(false);
   const [raisedHands, setRaisedHands] = useState<Set<string>>(new Set());
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [reactions, setReactions] = useState<Record<string, string>>({});
 
   const [panelOpen, setPanelOpen] = useState(false);
@@ -603,7 +626,7 @@ export default function ReunionRoom() {
                 onClick={toggleMute}
                 title={muted ? t("reunionRoom.enableMic") : t("reunionRoom.disableMic")}
               >
-                {muted ? "🔇" : "🎙️"}
+                {muted ? <MicOff size={20} /> : <Mic size={20} />}
               </button>
               <button
                 className={`meet-btn ${cameraOff ? "meet-btn-off" : ""}`}
@@ -611,7 +634,7 @@ export default function ReunionRoom() {
                 onClick={toggleCamera}
                 title={cameraOff ? t("reunionRoom.enableCamera") : t("reunionRoom.disableCamera")}
               >
-                {cameraOff ? "📷" : "🎥"}
+                {cameraOff ? <VideoOff size={20} /> : <Video size={20} />}
               </button>
             </div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
@@ -650,7 +673,7 @@ export default function ReunionRoom() {
         </span>
         <div className="meet-topbar-right" style={{ position: "relative" }}>
           <button className="meet-icon-btn" title={t("reunionRoom.meetingInfo")} onClick={() => setInfoOpen((v) => !v)}>
-            ⓘ
+            <Info size={18} />
           </button>
           {infoOpen && (
             <div
@@ -725,7 +748,7 @@ export default function ReunionRoom() {
                 {t("reunionRoom.participantsTab")} ({tileCount})
               </button>
               <button className="meet-icon-btn" style={{ marginRight: 8 }} onClick={() => setPanelOpen(false)}>
-                ✕
+                <X size={18} />
               </button>
             </div>
 
@@ -762,13 +785,21 @@ export default function ReunionRoom() {
                     {user?.name}
                     {t("reunionRoom.youSuffix")}
                   </span>
-                  {handRaised && <span style={{ marginLeft: "auto" }}>✋</span>}
+                  {handRaised && (
+                    <span style={{ marginLeft: "auto", display: "flex" }}>
+                      <Hand size={16} />
+                    </span>
+                  )}
                 </div>
                 {participants.map((p) => (
                   <div key={p.id} className="meet-participant-row">
                     <div className="meet-tile-avatar">{p.name.charAt(0).toUpperCase()}</div>
                     <span>{p.name}</span>
-                    {raisedHands.has(p.id) && <span style={{ marginLeft: "auto" }}>✋</span>}
+                    {raisedHands.has(p.id) && (
+                      <span style={{ marginLeft: "auto", display: "flex" }}>
+                        <Hand size={16} />
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -784,32 +815,32 @@ export default function ReunionRoom() {
             onClick={toggleMute}
             title={muted ? t("reunionRoom.enableMic") : t("reunionRoom.disableMic")}
           >
-            {muted ? "🔇" : "🎙️"}
+            {muted ? <MicOff size={20} /> : <Mic size={20} />}
           </button>
           <button
             className={`meet-btn ${cameraOff ? "meet-btn-off" : ""}`}
             onClick={toggleCamera}
             title={cameraOff ? t("reunionRoom.enableCamera") : t("reunionRoom.disableCamera")}
           >
-            {cameraOff ? "📷" : "🎥"}
+            {cameraOff ? <VideoOff size={20} /> : <Video size={20} />}
           </button>
           <button
             className={`meet-btn ${screenSharing ? "meet-btn-active" : ""}`}
             onClick={() => (screenSharing ? stopScreenShare() : startScreenShare())}
             title={screenSharing ? t("reunionRoom.screenShareStop") : t("reunionRoom.screenShareStart")}
           >
-            🖥️
+            {screenSharing ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />}
           </button>
           <button
             className={`meet-btn ${handRaised ? "meet-btn-active" : ""}`}
             onClick={toggleHand}
             title={handRaised ? t("reunionRoom.lowerHand") : t("reunionRoom.raiseHand")}
           >
-            ✋
+            <Hand size={20} />
           </button>
           <div style={{ position: "relative" }}>
             <button className="meet-btn" onClick={() => setReactionPickerOpen((v) => !v)} title={t("reunionRoom.reactions")}>
-              😊
+              <Smile size={20} />
             </button>
             {reactionPickerOpen && (
               <div className="meet-reaction-picker">
@@ -822,22 +853,37 @@ export default function ReunionRoom() {
             )}
           </div>
           {isHost && (
-            <button className="meet-btn" onClick={endForEveryone} title={t("reunionRoom.endForEveryone")}>
-              🚫
-            </button>
+            <div style={{ position: "relative" }}>
+              <button className="meet-btn" onClick={() => setMoreMenuOpen((v) => !v)} title={t("reunionRoom.moreOptions")}>
+                <MoreVertical size={20} />
+              </button>
+              {moreMenuOpen && (
+                <div className="meet-more-menu">
+                  <button
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      endForEveryone();
+                    }}
+                  >
+                    <Ban size={16} />
+                    {t("reunionRoom.endForEveryone")}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <button className="meet-btn meet-btn-hangup" onClick={leaveRoom} title={t("reunionRoom.leave")}>
-            📞
+            <PhoneOff size={20} />
           </button>
         </div>
 
         <div className="meet-side-icons">
           <button className="meet-btn" onClick={() => openPanel("chat")} title={t("reunionRoom.chat")}>
-            💬
+            <MessageSquare size={20} />
             {unreadChat > 0 && <span className="badge-notify" style={{ position: "absolute", top: -2, right: -2 }}>{unreadChat}</span>}
           </button>
           <button className="meet-btn" onClick={() => openPanel("participants")} title={t("reunionRoom.participantsTab")}>
-            👥 {tileCount}
+            <Users size={20} /> {tileCount}
           </button>
         </div>
       </div>
