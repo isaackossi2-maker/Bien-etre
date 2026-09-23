@@ -68,6 +68,20 @@ export interface MeditationView {
   user: { id: string; name: string; email: string };
 }
 
+export interface LibraryDocument {
+  id: string;
+  title: string;
+  description?: string | null;
+  coverData: string;
+  originalFileName: string;
+  fileMimeType: string;
+  fileSize: number;
+  downloadEnabled: boolean;
+  downloadStartAt?: string | null;
+  downloadEndAt?: string | null;
+  createdAt: string;
+}
+
 export type MessageType = "TEXT" | "AUDIO" | "FILE";
 
 export interface Message {

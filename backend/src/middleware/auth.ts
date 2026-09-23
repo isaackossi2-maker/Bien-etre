@@ -25,6 +25,29 @@ export function verifyToken(token: string): TokenPayload {
   return jwt.verify(token, JWT_SECRET) as TokenPayload;
 }
 
+// Token léger pour les invités externes sans compte qui rejoignent UNE réunion précise via son
+// lien (voir routes/meetings.ts `POST /:id/guest` et ws.ts). Distinct de TokenPayload : un
+// invité n'a pas de ligne User, donc pas d'id/role/email valides à faire circuler ailleurs dans
+// l'API — ce token n'est accepté que par le WebSocket de signalisation, pour cette réunion.
+export interface GuestTokenPayload {
+  guestId: string;
+  name: string;
+  meetingId: string;
+  guest: true;
+}
+
+const GUEST_TOKEN_TTL = "6h";
+
+export function signGuestToken(payload: Omit<GuestTokenPayload, "guest">): string {
+  return jwt.sign({ ...payload, guest: true }, JWT_SECRET, { expiresIn: GUEST_TOKEN_TTL });
+}
+
+export function verifyGuestToken(token: string): GuestTokenPayload {
+  const decoded = jwt.verify(token, JWT_SECRET) as GuestTokenPayload;
+  if (!decoded.guest) throw new Error("Ce token n'est pas un token invité");
+  return decoded;
+}
+
 export function authenticate(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith("Bearer ")) {

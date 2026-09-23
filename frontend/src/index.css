@@ -230,6 +230,14 @@ button {
   margin-bottom: 24px;
 }
 
+/* Couvertures de livres : contrairement à .stat-grid, la largeur des cartes est plafonnée
+   (pas de 1fr) pour qu'une carte seule ne s'étire pas sur toute la largeur disponible. */
+.document-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 150px));
+  gap: 16px;
+}
+
 .stat-card {
   background: var(--surface);
   border: 1px solid var(--border);

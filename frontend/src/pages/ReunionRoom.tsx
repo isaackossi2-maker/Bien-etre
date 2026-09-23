@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { ICE_SERVERS, useCall } from "../call/CallContext";
+import { useGuestSignaling } from "../call/useGuestSignaling";
 import { Meeting } from "../types";
 import Avatar from "../components/Avatar";
 import { useTranslatedText } from "../i18n/useTranslatedContent";
@@ -133,7 +134,19 @@ export default function ReunionRoom() {
   // Réutilise la connexion WebSocket déjà maintenue par CallContext pour toute l'appli, plutôt
   // que d'en ouvrir une deuxième dédiée à la réunion (l'ancienne implémentation le faisait, sans
   // logique de reconnexion — une coupure réseau pendant une réunion restait alors définitive).
-  const { sendSignal, onSignal, wsConnected } = useCall();
+  // Un invité externe sans compte (pas de `user`) n'a pas accès à cette connexion partagée
+  // (CallContext ne l'ouvre que pour un utilisateur connecté) : il utilise à la place une
+  // connexion dédiée, authentifiée par un token de courte durée obtenu après avoir saisi son nom.
+  const authedSignaling = useCall();
+  const [guestToken, setGuestToken] = useState<string | null>(null);
+  const guestSignaling = useGuestSignaling(!user ? guestToken : null);
+  const { sendSignal, onSignal, wsConnected } = user ? authedSignaling : guestSignaling;
+
+  const [guestName, setGuestName] = useState<string | null>(null);
+  const [guestNameInput, setGuestNameInput] = useState("");
+  const [guestSubmitting, setGuestSubmitting] = useState(false);
+  const [guestError, setGuestError] = useState<string | null>(null);
+  const displayName = user?.name ?? guestName ?? t("reunion.me");
 
   const [roomState, setRoomState] = useState<RoomState>("loading");
   const [meeting, setMeeting] = useState<Meeting | null>(null);
@@ -275,7 +288,7 @@ export default function ReunionRoom() {
   function createPeerConnection(peerId: string) {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     pc.onicecandidate = (e) => {
-      if (e.candidate) send({ type: "webrtc:ice", to: peerId, candidate: e.candidate });
+      if (e.candidate) send({ type: "webrtc:ice", to: peerId, candidate: e.candidate, meetingId: id });
     };
     pc.ontrack = (e) => {
       participantStreamsRef.current.set(peerId, e.streams[0]);
@@ -315,7 +328,7 @@ export default function ReunionRoom() {
     getOutgoingTracks().forEach(({ track, stream }) => pc.addTrack(track, stream));
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    send({ type: "webrtc:offer", to: peerId, sdp: offer });
+    send({ type: "webrtc:offer", to: peerId, sdp: offer, meetingId: id });
     syncParticipants();
   }
 
@@ -329,7 +342,7 @@ export default function ReunionRoom() {
     });
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
-    send({ type: "webrtc:answer", to: fromId, sdp: answer });
+    send({ type: "webrtc:answer", to: fromId, sdp: answer, meetingId: id });
     syncParticipants();
   }
 
@@ -534,7 +547,7 @@ export default function ReunionRoom() {
     e.preventDefault();
     const text = chatDraft.trim();
     if (!text) return;
-    setChatMessages((prev) => [...prev, { id: `self-${Date.now()}`, name: user?.name ?? t("reunion.me"), text, self: true }]);
+    setChatMessages((prev) => [...prev, { id: `self-${Date.now()}`, name: displayName, text, self: true }]);
     send({ type: "meeting:chat", meetingId: id, text });
     setChatDraft("");
   }
@@ -545,12 +558,29 @@ export default function ReunionRoom() {
     if (tab === "chat") setUnreadChat(0);
   }
 
+  async function submitGuestName(e: FormEvent) {
+    e.preventDefault();
+    const trimmed = guestNameInput.trim();
+    if (!trimmed || !id) return;
+    setGuestSubmitting(true);
+    setGuestError(null);
+    try {
+      const res = await api.post<{ token: string; name: string }>(`/meetings/${id}/guest`, { name: trimmed });
+      setGuestName(res.data.name);
+      setGuestToken(res.data.token);
+    } catch (err: any) {
+      setGuestError(err.response?.data?.message ?? t("reunionRoom.guestJoinError"));
+    } finally {
+      setGuestSubmitting(false);
+    }
+  }
+
   function joinRoom() {
     setRoomState("active");
   }
 
   function leaveRoom() {
-    navigate("/reunion");
+    navigate(user ? "/reunion" : "/login");
   }
 
   async function endForEveryone() {
@@ -589,7 +619,7 @@ export default function ReunionRoom() {
       <div style={wrap}>
         <h2>{t("reunionRoom.notFoundTitle")}</h2>
         <p style={{ color: "var(--text-muted)" }}>{t("reunionRoom.notFoundText")}</p>
-        <button className="btn btn-primary" onClick={() => navigate("/reunion")}>
+        <button className="btn btn-primary" onClick={() => navigate(user ? "/reunion" : "/login")}>
           {t("reunionRoom.back")}
         </button>
       </div>
@@ -601,7 +631,7 @@ export default function ReunionRoom() {
       <div style={wrap}>
         <h2>{t("reunionRoom.endedTitle")}</h2>
         <p style={{ color: "var(--text-muted)" }}>{meetingTitle}</p>
-        <button className="btn btn-primary" onClick={() => navigate("/reunion")}>
+        <button className="btn btn-primary" onClick={() => navigate(user ? "/reunion" : "/login")}>
           {t("reunionRoom.back")}
         </button>
       </div>
@@ -609,42 +639,67 @@ export default function ReunionRoom() {
   }
 
   if (roomState === "lobby") {
+    const needsGuestName = !user && !guestToken;
     return (
       <div className="meet-room">
         <div className="meet-stage">
           <div style={{ width: "min(420px, 90vw)" }}>
-            <Tile name={user?.name ?? t("reunion.me")} stream={cameraStream} isSelf cameraOff={cameraOff} />
+            <Tile name={displayName} stream={cameraStream} isSelf cameraOff={cameraOff} />
             <h2 style={{ margin: "16px 0 2px" }}>{meetingTitle}</h2>
             <p style={{ color: "#9aa0a6", margin: "0 0 16px", fontSize: "0.85rem" }}>
               {t("reunionRoom.organizedBy", { name: meeting?.createdBy?.name ?? t("reunionRoom.unknownUser") })}
             </p>
             {error && <p style={{ color: "#f28b82" }}>{error}</p>}
-            <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 18 }}>
-              <button
-                className={`meet-btn ${muted ? "meet-btn-off" : ""}`}
-                style={{ background: muted ? undefined : "#3c4043" }}
-                onClick={toggleMute}
-                title={muted ? t("reunionRoom.enableMic") : t("reunionRoom.disableMic")}
-              >
-                {muted ? <MicOff size={20} /> : <Mic size={20} />}
-              </button>
-              <button
-                className={`meet-btn ${cameraOff ? "meet-btn-off" : ""}`}
-                style={{ background: cameraOff ? undefined : "#3c4043" }}
-                onClick={toggleCamera}
-                title={cameraOff ? t("reunionRoom.enableCamera") : t("reunionRoom.disableCamera")}
-              >
-                {cameraOff ? <VideoOff size={20} /> : <Video size={20} />}
-              </button>
-            </div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-              <button className="btn btn-primary" onClick={joinRoom}>
-                {t("reunionRoom.join")}
-              </button>
-              <button className="btn btn-outline" onClick={copyLink} style={{ background: "transparent", color: "#e8eaed", borderColor: "rgba(255,255,255,0.3)" }}>
-                {copied ? t("reunionRoom.linkCopied") : t("reunionRoom.shareLink")}
-              </button>
-            </div>
+
+            {needsGuestName ? (
+              <form onSubmit={submitGuestName} style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+                <input
+                  autoFocus
+                  value={guestNameInput}
+                  onChange={(e) => setGuestNameInput(e.target.value)}
+                  placeholder={t("reunionRoom.guestNamePlaceholder")}
+                  maxLength={60}
+                  style={{ width: "100%", textAlign: "center" }}
+                />
+                {guestError && <p style={{ color: "#f28b82", margin: 0 }}>{guestError}</p>}
+                <button className="btn btn-primary" type="submit" disabled={guestSubmitting || !guestNameInput.trim()}>
+                  {guestSubmitting ? t("common.loading") : t("reunionRoom.guestContinue")}
+                </button>
+              </form>
+            ) : (
+              <>
+                <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 18 }}>
+                  <button
+                    className={`meet-btn ${muted ? "meet-btn-off" : ""}`}
+                    style={{ background: muted ? undefined : "#3c4043" }}
+                    onClick={toggleMute}
+                    title={muted ? t("reunionRoom.enableMic") : t("reunionRoom.disableMic")}
+                  >
+                    {muted ? <MicOff size={20} /> : <Mic size={20} />}
+                  </button>
+                  <button
+                    className={`meet-btn ${cameraOff ? "meet-btn-off" : ""}`}
+                    style={{ background: cameraOff ? undefined : "#3c4043" }}
+                    onClick={toggleCamera}
+                    title={cameraOff ? t("reunionRoom.enableCamera") : t("reunionRoom.disableCamera")}
+                  >
+                    {cameraOff ? <VideoOff size={20} /> : <Video size={20} />}
+                  </button>
+                </div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+                  <button className="btn btn-primary" onClick={joinRoom}>
+                    {t("reunionRoom.join")}
+                  </button>
+                  <button
+                    className="btn btn-outline"
+                    onClick={copyLink}
+                    style={{ background: "transparent", color: "#e8eaed", borderColor: "rgba(255,255,255,0.3)" }}
+                  >
+                    {copied ? t("reunionRoom.linkCopied") : t("reunionRoom.shareLink")}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -657,7 +712,7 @@ export default function ReunionRoom() {
 
   const sharer =
     screenSharing
-      ? { id: "self", name: user?.name ?? t("reunion.me"), stream: screenStream, isSelf: true }
+      ? { id: "self", name: displayName, stream: screenStream, isSelf: true }
       : remoteSharerId
         ? (() => {
             const p = participants.find((pp) => pp.id === remoteSharerId);
@@ -699,7 +754,7 @@ export default function ReunionRoom() {
               </button>
             </div>
           )}
-          <Avatar name={user?.name} avatar={user?.avatar} size={32} />
+          <Avatar name={displayName} avatar={user?.avatar} size={32} />
         </div>
       </div>
 
@@ -712,7 +767,7 @@ export default function ReunionRoom() {
               </div>
               <div className="meet-spotlight-strip">
                 {sharer.id !== "self" && (
-                  <Tile name={user?.name ?? t("reunion.me")} stream={cameraStream} isSelf cameraOff={cameraOff} handRaised={handRaised} reaction={reactions["self"]} />
+                  <Tile name={displayName} stream={cameraStream} isSelf cameraOff={cameraOff} handRaised={handRaised} reaction={reactions["self"]} />
                 )}
                 {participants
                   .filter((p) => p.id !== sharer.id)
@@ -724,7 +779,7 @@ export default function ReunionRoom() {
           ) : (
             <div className="meet-grid" style={{ gridTemplateColumns: `repeat(${columns}, minmax(160px, 1fr))` }}>
               <Tile
-                name={user?.name ?? t("reunion.me")}
+                name={displayName}
                 stream={cameraStream}
                 isSelf
                 cameraOff={cameraOff}
@@ -780,9 +835,9 @@ export default function ReunionRoom() {
             ) : (
               <div className="meet-panel-body">
                 <div className="meet-participant-row">
-                  <div className="meet-tile-avatar">{(user?.name ?? "?").charAt(0).toUpperCase()}</div>
+                  <div className="meet-tile-avatar">{displayName.charAt(0).toUpperCase()}</div>
                   <span>
-                    {user?.name}
+                    {displayName}
                     {t("reunionRoom.youSuffix")}
                   </span>
                   {handRaised && (

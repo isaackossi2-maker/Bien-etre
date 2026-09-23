@@ -1,6 +1,6 @@
 import { Server } from "http";
 import { WebSocket, WebSocketServer } from "ws";
-import { verifyToken } from "./middleware/auth";
+import { verifyToken, verifyGuestToken } from "./middleware/auth";
 import { prisma } from "./prisma";
 import { canContact } from "./utils/permissions";
 import { Role } from "@prisma/client";
@@ -16,7 +16,7 @@ interface SignalMessage {
 interface HandlerCtx {
   ws: WebSocket;
   userId: string;
-  role: Role;
+  role: Role | "GUEST";
   name: string;
   msg: SignalMessage;
 }
@@ -37,6 +37,13 @@ const meetingRooms = new Map<string, Map<string, string>>();
 // utilisateur : sert à ne quitter une salle que quand l'onglet qui l'a rejointe se ferme, pas
 // seulement quand le DERNIER onglet de l'utilisateur se ferme (cas d'un utilisateur multi-onglets).
 const socketRooms = new Map<WebSocket, { groups: Set<string>; meetings: Set<string> }>();
+
+// Convention : les invités externes (voir routes/meetings.ts `POST /:id/guest`) reçoivent un
+// identifiant "guest:<uuid>" plutôt qu'un vrai id d'utilisateur, pour rester distinguables
+// partout où l'id sert de clé (roster, connections...) sans jamais correspondre à une ligne User.
+function isGuestId(id: string): boolean {
+  return id.startsWith("guest:");
+}
 
 function getSocketRooms(ws: WebSocket) {
   let rooms = socketRooms.get(ws);
@@ -132,7 +139,9 @@ export function endMeetingRoom(meetingId: string) {
 // réunion est disponible, pour qu'ils puissent la rejoindre sans avoir le lien.
 export function broadcastMeetingCreated(meeting: { id: string; title: string; createdAt: Date }, creatorId: string, creatorName: string) {
   connections.forEach((_set, id) => {
-    if (id === creatorId) return;
+    // Les invités externes (voir isGuestId) ne connaissent que la réunion pour laquelle leur
+    // lien a été délivré : pas de notification globale qui leur révélerait d'autres réunions.
+    if (id === creatorId || isGuestId(id)) return;
     sendTo(id, {
       type: "meeting:new",
       meeting: {
@@ -149,7 +158,10 @@ export function broadcastMeetingCreated(meeting: { id: string; title: string; cr
 // Prévient tous les utilisateurs connectés qu'une réunion n'est plus disponible
 // (pour faire disparaître une éventuelle notification affichée ailleurs que dans la salle).
 export function broadcastMeetingClosed(meetingId: string) {
-  connections.forEach((_set, id) => sendTo(id, { type: "meeting:closed", meetingId }));
+  connections.forEach((_set, id) => {
+    if (isGuestId(id)) return;
+    sendTo(id, { type: "meeting:closed", meetingId });
+  });
 }
 
 // ---------- Handlers : un par type de message, dispatché depuis le registre en bas de fichier ----------
@@ -294,8 +306,26 @@ function handleMeetingScreenShare({ userId, msg }: HandlerCtx) {
 // après vérification systématique de la règle "un utilisateur ne peut contacter qu'un
 // administrateur" — appliquée à CHAQUE type, pas seulement à l'invitation initiale, sans quoi
 // un client pouvait envoyer une offer/answer/ice directement en contournant la règle.
+//
+// Exception : la signalisation WebRTC d'une réunion (mesh à plusieurs, invités externes
+// inclus) réutilise ces mêmes types "webrtc:offer/answer/ice" avec un `meetingId`. La règle
+// "contact = admin uniquement" n'a pas de sens dans ce cas (deux participants non-admin d'une
+// réunion doivent pouvoir se connecter entre eux) ; on vérifie à la place que l'expéditeur ET
+// le destinataire sont bien tous les deux dans la salle de CETTE réunion.
 async function handleCallRelay({ userId, role, name, msg }: HandlerCtx) {
   if (typeof msg.to !== "string") return;
+
+  if (typeof msg.meetingId === "string") {
+    const room = meetingRooms.get(msg.meetingId);
+    if (!room || !room.has(userId) || !room.has(msg.to)) return;
+    sendTo(msg.to, { ...msg, from: userId, fromName: name });
+    return;
+  }
+
+  // Un invité n'a pas de ligne User (canContact y échouerait de toute façon) et ne doit
+  // jamais pouvoir initier un appel 1:1 hors du cadre d'une réunion.
+  if (role === "GUEST") return;
+
   const allowed = await canContact(userId, role, msg.to);
   if (!allowed) {
     if (msg.type === "call:invite") sendTo(userId, { type: "call:unavailable", from: msg.to, reason: "forbidden" });
@@ -327,27 +357,57 @@ const handlers: Record<string, Handler> = {
   "webrtc:ice": handleCallRelay,
 };
 
+// Un invité externe (sans compte) ne peut déclencher que ces types de messages, tous relatifs
+// à LA réunion pour laquelle son lien lui a été délivré — jamais un appel 1:1, un appel de
+// groupe, ou une autre réunion.
+const GUEST_ALLOWED_TYPES = new Set([
+  "meeting:join",
+  "meeting:leave",
+  "meeting:chat",
+  "meeting:hand",
+  "meeting:reaction",
+  "meeting:screen-share",
+  "webrtc:offer",
+  "webrtc:answer",
+  "webrtc:ice",
+]);
+
 export function setupSignaling(server: Server) {
   const wss = new WebSocketServer({ server, path: "/ws" });
 
   wss.on("connection", (ws, req) => {
     const url = new URL(req.url ?? "", "http://localhost");
     const token = url.searchParams.get("token");
-    if (!token) {
-      ws.close(4001, "Token manquant");
-      return;
-    }
+    const guestToken = url.searchParams.get("guestToken");
 
     let userId: string;
-    let role: Role;
+    let role: Role | "GUEST";
     let name: string;
-    try {
-      const payload = verifyToken(token);
-      userId = payload.id;
-      role = payload.role;
-      name = payload.name;
-    } catch {
-      ws.close(4002, "Token invalide");
+    let guestMeetingId: string | null = null;
+
+    if (guestToken) {
+      try {
+        const payload = verifyGuestToken(guestToken);
+        userId = payload.guestId;
+        role = "GUEST";
+        name = payload.name;
+        guestMeetingId = payload.meetingId;
+      } catch {
+        ws.close(4002, "Token invité invalide");
+        return;
+      }
+    } else if (token) {
+      try {
+        const payload = verifyToken(token);
+        userId = payload.id;
+        role = payload.role;
+        name = payload.name;
+      } catch {
+        ws.close(4002, "Token invalide");
+        return;
+      }
+    } else {
+      ws.close(4001, "Token manquant");
       return;
     }
 
@@ -361,6 +421,10 @@ export function setupSignaling(server: Server) {
         return;
       }
       if (!msg.type) return;
+      if (guestMeetingId) {
+        if (!GUEST_ALLOWED_TYPES.has(msg.type)) return;
+        if (typeof msg.meetingId === "string" && msg.meetingId !== guestMeetingId) return;
+      }
       const handler = handlers[msg.type];
       if (handler) await handler({ ws, userId, role, name, msg });
     });

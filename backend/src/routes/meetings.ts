@@ -1,7 +1,8 @@
+import { randomUUID } from "crypto";
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
-import { authenticate, requireRole } from "../middleware/auth";
+import { authenticate, requireRole, signGuestToken } from "../middleware/auth";
 import { validateBody } from "../middleware/validate";
 import { logAction } from "../utils/log";
 import { endMeetingRoom, broadcastMeetingCreated, broadcastMeetingClosed } from "../ws";
@@ -9,11 +10,10 @@ import { endMeetingRoom, broadcastMeetingCreated, broadcastMeetingClosed } from 
 const MISSED_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
 
 const router = Router();
-router.use(authenticate);
 
 // Réunions actives, toutes confondues : n'importe quel utilisateur connecté doit
 // pouvoir les voir et les rejoindre, pas seulement celui qui les a créées.
-router.get("/", async (req, res) => {
+router.get("/", authenticate, async (req, res) => {
   const meetings = await prisma.meeting.findMany({
     where: { endedAt: null },
     orderBy: { createdAt: "desc" },
@@ -24,7 +24,8 @@ router.get("/", async (req, res) => {
 
 // Réunions terminées que l'utilisateur n'a jamais rejointes et qu'il n'a pas
 // lui-même organisées : à afficher côté utilisateur comme "réunions manquées".
-router.get("/missed", async (req, res) => {
+// Enregistrée avant "GET /:id" (public, plus bas) car "/missed" matcherait sinon ":id".
+router.get("/missed", authenticate, async (req, res) => {
   const meetings = await prisma.meeting.findMany({
     where: {
       endedAt: { not: null, gte: new Date(Date.now() - MISSED_LOOKBACK_MS) },
@@ -42,7 +43,7 @@ const createMeetingSchema = z.object({
 });
 
 // Seuls les admins organisent des réunions ; les utilisateurs les rejoignent.
-router.post("/", requireRole("ADMIN"), validateBody(createMeetingSchema), async (req, res) => {
+router.post("/", authenticate, requireRole("ADMIN"), validateBody(createMeetingSchema), async (req, res) => {
   const { title } = req.body as z.infer<typeof createMeetingSchema>;
   const meeting = await prisma.meeting.create({
     data: {
@@ -55,7 +56,8 @@ router.post("/", requireRole("ADMIN"), validateBody(createMeetingSchema), async 
   res.status(201).json(meeting);
 });
 
-// N'importe quel utilisateur connecté ayant le lien peut consulter ces infos avant de rejoindre.
+// Public (pas d'authentification) : un invité externe sans compte doit pouvoir voir le titre/
+// organisateur d'une réunion avant de la rejoindre, tout comme un utilisateur connecté.
 router.get("/:id", async (req, res) => {
   const meeting = await prisma.meeting.findUnique({
     where: { id: req.params.id },
@@ -67,7 +69,27 @@ router.get("/:id", async (req, res) => {
   res.json(meeting);
 });
 
-router.post("/:id/end", async (req, res) => {
+const guestJoinSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+});
+
+// Public : délivre un token de courte durée réservé à CETTE réunion (voir ws.ts), pour un
+// invité externe sans compte. Il n'accorde aucun accès au reste de l'API.
+router.post("/:id/guest", validateBody(guestJoinSchema), async (req, res) => {
+  const meeting = await prisma.meeting.findUnique({ where: { id: req.params.id } });
+  if (!meeting) {
+    return res.status(404).json({ message: "Réunion introuvable" });
+  }
+  if (meeting.endedAt) {
+    return res.status(410).json({ message: "Cette réunion est terminée" });
+  }
+  const { name } = req.body as z.infer<typeof guestJoinSchema>;
+  const guestId = `guest:${randomUUID()}`;
+  const token = signGuestToken({ guestId, name, meetingId: meeting.id });
+  res.json({ token, name });
+});
+
+router.post("/:id/end", authenticate, async (req, res) => {
   const meeting = await prisma.meeting.findUnique({ where: { id: req.params.id } });
   if (!meeting) {
     return res.status(404).json({ message: "Réunion introuvable" });

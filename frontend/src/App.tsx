@@ -49,10 +49,14 @@ export default function App() {
 
         {/* La salle de réunion reste hors des layouts admin/utilisateur : le lien est
             partagé entre rôles et la vue plein écran suit le même schéma que les appels.
-            La session d'examen est également hors layout : pas de sidebar accessible
-            pendant l'épreuve, condition nécessaire au verrouillage de l'écran. */}
+            Volontairement PAS derrière ProtectedRoute : un invité externe sans compte doit
+            pouvoir l'ouvrir directement via le lien (ReunionRoom gère elle-même le cas où
+            aucun utilisateur n'est connecté, en demandant juste un nom). */}
+        <Route path="/reunion/:id" element={<ReunionRoom />} />
+
+        {/* La session d'examen est hors layout : pas de sidebar accessible pendant
+            l'épreuve, condition nécessaire au verrouillage de l'écran. */}
         <Route element={<ProtectedRoute allowedRoles={["USER", "ADMIN"]} />}>
-          <Route path="/reunion/:id" element={<ReunionRoom />} />
           <Route path="/exam-session/:id" element={<UserExamTake />} />
         </Route>
 

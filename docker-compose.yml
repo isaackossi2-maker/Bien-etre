@@ -34,6 +34,10 @@ services:
         condition: service_healthy
     ports:
       - "4001:4000"
+    volumes:
+      # Fichiers PDF de la bibliothèque de documents (page Bible) : stockés sur disque plutôt
+      # qu'en base (contrairement aux petites images), volume nommé pour survivre aux rebuilds.
+      - documents_data:/app/uploads
 
   # Traduction automatique du contenu (examens, méditations, annonces...) quand un
   # utilisateur bascule la langue de l'appli. Auto-hébergé : pas de clé API, gratuit,
@@ -85,3 +89,4 @@ services:
 volumes:
   db_data:
   libretranslate_data:
+  documents_data:

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BIBLE_BOOKS, Testament } from "../data/bibleBooks";
+import { useAuth } from "../auth/AuthContext";
+import DocumentLibrary from "../components/DocumentLibrary";
 
 type BibleData = Record<string, string[][]>;
 
@@ -26,6 +28,41 @@ function parseVerse(raw: string): Verse {
   return { number: Number(match[1]), text: match[2].trim() };
 }
 
+// Insensible aux accents/majuscules, pour reconnaître "genese"/"Genèse", "ephesiens"/"Éphésiens"...
+function normalizeText(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{Mn}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+interface ParsedReference {
+  book: (typeof BIBLE_BOOKS)[number];
+  chapter: number;
+  verse?: number;
+}
+
+// Reconnaît une référence tapée dans la recherche (ex. "Jean 3:16", "Genese 1", "1 Jean 4.19")
+// pour sauter directement au bon endroit plutôt que de chercher ce texte mot à mot.
+function parseReference(query: string): ParsedReference | null {
+  const normalizedQuery = normalizeText(query);
+  const candidates = BIBLE_BOOKS.flatMap((b) => [
+    { book: b, key: normalizeText(b.name) },
+    { book: b, key: normalizeText(b.nameEn) },
+  ]).sort((a, b) => b.key.length - a.key.length);
+
+  for (const { book, key } of candidates) {
+    if (!normalizedQuery.startsWith(key)) continue;
+    const rest = normalizedQuery.slice(key.length).trim();
+    const match = rest.match(/^(\d+)(?:[\s:.,]+(\d+))?$/);
+    if (match) {
+      return { book, chapter: Number(match[1]), verse: match[2] ? Number(match[2]) : undefined };
+    }
+  }
+  return null;
+}
+
 function readStoredPosition(): { bookKey: string; chapter: number } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -41,6 +78,7 @@ function readStoredPosition(): { bookKey: string; chapter: number } {
 
 export default function Bible() {
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   const bookName = (b: { name: string; nameEn: string }) => (i18n.language === "en" ? b.nameEn : b.name);
   const [data, setData] = useState<BibleData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,11 +159,39 @@ export default function Bible() {
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (!data) return;
-    const term = query.trim().toLowerCase();
-    if (!term) {
+    const rawTerm = query.trim();
+    if (!rawTerm) {
       setSearchHits(null);
       return;
     }
+
+    // Une référence reconnue ("Jean 3:16", "Genese 1"...) saute directement au bon endroit
+    // plutôt que de chercher ce texte mot à mot, ce qui échouait toujours dans ce cas (le
+    // texte des versets ne contient jamais littéralement la référence tapée).
+    const ref = parseReference(rawTerm);
+    if (ref) {
+      const chapterLines = data[ref.book.key]?.[ref.chapter - 1];
+      if (chapterLines) {
+        if (ref.verse != null) {
+          const raw = chapterLines.find((l) => {
+            const m = l.match(/^(\d+)\s+/);
+            return m && Number(m[1]) === ref.verse;
+          });
+          if (raw) {
+            const v = parseVerse(raw);
+            setTestament(ref.book.testament);
+            setSearchHits([{ bookKey: ref.book.key, bookName: bookName(ref.book), chapter: ref.chapter, verse: v.number, text: v.text }]);
+            return;
+          }
+        } else {
+          setTestament(ref.book.testament);
+          goToChapter(ref.book.key, ref.chapter);
+          return;
+        }
+      }
+    }
+
+    const term = rawTerm.toLowerCase();
     const hits: SearchHit[] = [];
     for (const b of BIBLE_BOOKS) {
       const chapters = data[b.key];
@@ -156,6 +222,8 @@ export default function Bible() {
       <div className="page-header">
         <h1>{t("bible.title")}</h1>
       </div>
+
+      <DocumentLibrary editable={user?.role === "ADMIN"} />
 
       <div className="card" style={{ marginBottom: 20 }}>
         <h3 style={{ marginTop: 0 }}>{t("bible.searchTitle")}</h3>

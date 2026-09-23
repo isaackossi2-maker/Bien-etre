@@ -1,6 +1,7 @@
 import "express-async-errors";
 import express from "express";
 import cors from "cors";
+import multer from "multer";
 import { Prisma } from "@prisma/client";
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/users";
@@ -14,6 +15,7 @@ import postRoutes from "./routes/posts";
 import groupRoutes from "./routes/groups";
 import meetingRoutes from "./routes/meetings";
 import translateRoutes from "./routes/translate";
+import documentRoutes from "./routes/documents";
 
 export function createApp() {
   const app = express();
@@ -36,6 +38,7 @@ export function createApp() {
   app.use("/api/groups", groupRoutes);
   app.use("/api/meetings", meetingRoutes);
   app.use("/api/translate", translateRoutes);
+  app.use("/api/documents", documentRoutes);
 
   app.use((req, res) => {
     res.status(404).json({ message: `Route non trouvée: ${req.method} ${req.path}` });
@@ -52,6 +55,15 @@ export function createApp() {
       if (err.code === "P2002") {
         return res.status(409).json({ message: "Cette ressource existe déjà" });
       }
+    }
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({ message: "Le fichier dépasse la taille maximale autorisée (60 Mo)" });
+      }
+      return res.status(400).json({ message: "Erreur lors de l'envoi du fichier" });
+    }
+    if (err instanceof Error && err.message === "Le document doit être un fichier PDF") {
+      return res.status(400).json({ message: err.message });
     }
     console.error(err);
     res.status(500).json({ message: "Erreur serveur interne" });

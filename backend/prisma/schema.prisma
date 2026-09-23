@@ -277,6 +277,28 @@ model TranslationCache {
   @@unique([sourceHash, targetLang])
 }
 
+// Livre/document PDF affiché sur la page Bible (bibliothèque gérée par l'admin). La
+// couverture est stockée en base64 (petite image, cohérent avec le reste de l'appli) mais
+// le PDF lui-même est stocké sur disque (fileFileName), pas en base : les documents peuvent
+// être volumineux (livres scannés), contrairement aux images/messages déjà en base64.
+model Document {
+  id               String    @id @default(uuid())
+  title            String
+  description      String?
+  coverData        String    @db.Text
+  fileFileName     String
+  originalFileName String
+  fileMimeType     String
+  fileSize         Int
+  // Le téléchargement (par opposition à la simple visualisation en ligne) est désactivé par
+  // défaut et doit être explicitement autorisé par l'admin, avec une fenêtre de dates
+  // optionnelle : bornes nulles = pas de restriction de ce côté (voir routes/documents.ts).
+  downloadEnabled  Boolean   @default(false)
+  downloadStartAt  DateTime?
+  downloadEndAt    DateTime?
+  createdAt        DateTime  @default(now())
+}
+
 // Verset du jour affiché sur les pages Méditations (admin + utilisateur) : une seule ligne
 // partagée par toute l'application (id fixe "current"), qui se renouvelle automatiquement
 // toutes les 24h sauf si l'admin l'a personnalisé (voir routes/meditations.ts).
