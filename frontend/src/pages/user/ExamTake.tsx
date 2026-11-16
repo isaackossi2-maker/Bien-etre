@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
@@ -23,6 +23,10 @@ export default function UserExamTake() {
   const [stage, setStage] = useState<Stage>("intro");
   const [violations, setViolations] = useState(0);
   const [violationNotice, setViolationNotice] = useState<string | null>(null);
+  const [exitAction, setExitAction] = useState<"early-submit" | "abandon" | null>(null);
+  const [exitPasswordInput, setExitPasswordInput] = useState("");
+  const [exitPasswordError, setExitPasswordError] = useState<string | null>(null);
+  const [verifyingExitPassword, setVerifyingExitPassword] = useState(false);
   const submittedRef = useRef(false);
   const stageRef = useRef<Stage>("intro");
   const lockdownStartedAtRef = useRef(0);
@@ -202,6 +206,61 @@ export default function UserExamTake() {
     navigate("/app/exams");
   }
 
+  // Termine (bouton "Soumettre") avant la fin du temps imparti : si l'examen a un mot de passe
+  // de sortie, il faut le saisir d'abord. Pas de restriction si l'examen n'a pas de durée, ou
+  // si le temps est déjà écoulé (dans ce cas la soumission automatique a de toute façon lieu).
+  function attemptSubmit() {
+    const isEarly = exam?.duration != null && remainingSeconds !== null && remainingSeconds > 0;
+    if (isEarly && exam?.hasExitPassword) {
+      setExitAction("early-submit");
+      setExitPasswordInput("");
+      setExitPasswordError(null);
+      return;
+    }
+    handleSubmit();
+  }
+
+  // Abandon volontaire (réponses incomplètes autorisées, contrairement au bouton "Soumettre") :
+  // toujours soumis au mot de passe de sortie s'il y en a un, sinon simple confirmation.
+  function attemptAbandon() {
+    if (exam?.hasExitPassword) {
+      setExitAction("abandon");
+      setExitPasswordInput("");
+      setExitPasswordError(null);
+      return;
+    }
+    if (!confirm(t("examTake.confirmAbandon"))) return;
+    handleSubmit();
+  }
+
+  async function confirmExitPassword(e: FormEvent) {
+    e.preventDefault();
+    if (!exam) return;
+    setVerifyingExitPassword(true);
+    setExitPasswordError(null);
+    try {
+      const { data } = await api.post<{ valid: boolean }>(`/exams/${exam.id}/verify-exit-password`, {
+        password: exitPasswordInput,
+      });
+      if (data.valid) {
+        setExitAction(null);
+        handleSubmit();
+      } else {
+        setExitPasswordError(t("examTake.exitPasswordError"));
+      }
+    } catch {
+      setExitPasswordError(t("examTake.exitPasswordError"));
+    } finally {
+      setVerifyingExitPassword(false);
+    }
+  }
+
+  function cancelExitPrompt() {
+    setExitAction(null);
+    setExitPasswordInput("");
+    setExitPasswordError(null);
+  }
+
   const examTitle = useTranslatedText(exam?.title);
   const examDescription = useTranslatedText(exam?.description);
   const questionTexts = useTranslatedTexts(exam?.questions?.map((q) => q.text) ?? []);
@@ -327,9 +386,54 @@ export default function UserExamTake() {
         });
       })()}
 
-      <button className="btn btn-primary" disabled={!allAnswered || submitting} onClick={() => handleSubmit()}>
-        {submitting ? t("examTake.submitting") : t("examTake.submit")}
-      </button>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button className="btn btn-primary" disabled={!allAnswered || submitting} onClick={attemptSubmit}>
+          {submitting ? t("examTake.submitting") : t("examTake.submit")}
+        </button>
+        <button className="btn btn-outline" disabled={submitting} onClick={attemptAbandon}>
+          {t("examTake.abandon")}
+        </button>
+      </div>
+
+      {exitAction && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "var(--overlay-bg)",
+            zIndex: 3000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <form className="card form-grid" style={{ width: "min(360px, 100%)" }} onSubmit={confirmExitPassword}>
+            <h3 style={{ margin: 0 }}>
+              {exitAction === "abandon" ? t("examTake.exitPasswordAbandonTitle") : t("examTake.exitPasswordEarlyTitle")}
+            </h3>
+            <label>
+              {t("examTake.exitPasswordLabel")}
+              <input
+                type="password"
+                autoFocus
+                value={exitPasswordInput}
+                onChange={(e) => setExitPasswordInput(e.target.value)}
+                required
+              />
+            </label>
+            {exitPasswordError && <span className="error-text">{exitPasswordError}</span>}
+            <div className="list-actions">
+              <button className="btn btn-primary" type="submit" disabled={verifyingExitPassword}>
+                {verifyingExitPassword ? t("common.loading") : t("examTake.exitPasswordConfirm")}
+              </button>
+              <button className="btn btn-outline" type="button" onClick={cancelExitPrompt} disabled={verifyingExitPassword}>
+                {t("common.cancel")}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

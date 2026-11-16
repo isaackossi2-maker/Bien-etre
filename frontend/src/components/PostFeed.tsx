@@ -80,7 +80,6 @@ export default function PostFeed({ canPublish }: { canPublish: boolean }) {
                   <Avatar name={p.author.name} avatar={p.author.avatar} size={38} />
                   <div>
                     <span style={{ fontWeight: 600 }}>{p.author.name}</span>{" "}
-                    <span className="badge badge-admin">{t("common.admin")}</span>
                     {p.recipients.length > 0 && (
                       <span
                         className="badge badge-user"
@@ -173,11 +172,6 @@ export default function PostFeed({ canPublish }: { canPublish: boolean }) {
                           <Avatar name={c.user.name} avatar={c.user.avatar} size={26} />
                           <div>
                             <strong>{c.user.name}</strong>
-                            {c.user.role === "ADMIN" && (
-                              <span className="badge badge-admin" style={{ marginLeft: 6 }}>
-                                {t("common.admin")}
-                              </span>
-                            )}
                             <div>{commentContents[commentStart + cIdx]}</div>
                           </div>
                         </div>

@@ -138,6 +138,16 @@ export default {
     makeInaccessible: "Rendre inaccessible",
     makeAccessible: "Rendre accessible",
     confirmDelete: "Supprimer cet examen ? Les questions associées seront aussi supprimées.",
+    questionsSectionTitle: "Questions",
+    addQuestionInline: "+ Ajouter une question",
+    noQuestionsYetHint: "Vous pouvez ajouter les questions maintenant, ou plus tard depuis « Gérer les questions ».",
+    exitPasswordCreateLabel: "Mot de passe de sortie (optionnel)",
+    exitPasswordEditLabel: "Nouveau mot de passe de sortie (laisser vide pour ne pas changer)",
+    exitPasswordPlaceholder: "Laisser vide = aucun mot de passe requis",
+    exitPasswordHint:
+      "Si défini, ce mot de passe sera demandé à l'utilisateur pour terminer l'examen avant la fin du temps imparti, ou pour l'abandonner.",
+    clearExitPassword: "Supprimer le mot de passe de sortie actuel",
+    exitPasswordBadgeTitle: "Un mot de passe de sortie est défini pour cet examen",
   },
 
   adminExamQuestions: {
@@ -284,6 +294,13 @@ export default {
     violationFinal: " — nombre maximal de sorties atteint, l'examen va être soumis.",
     submitError: "Impossible d'envoyer vos réponses",
     loadError: "Impossible de charger cet examen",
+    abandon: "Abandonner l'examen",
+    confirmAbandon: "Abandonner l'examen maintenant ? Vos réponses actuelles seront envoyées telles quelles.",
+    exitPasswordAbandonTitle: "Mot de passe requis pour abandonner",
+    exitPasswordEarlyTitle: "Mot de passe requis pour terminer avant la fin du temps",
+    exitPasswordLabel: "Mot de passe",
+    exitPasswordConfirm: "Valider",
+    exitPasswordError: "Mot de passe incorrect.",
   },
 
   reunion: {

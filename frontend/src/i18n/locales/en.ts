@@ -138,6 +138,16 @@ export default {
     makeInaccessible: "Make inaccessible",
     makeAccessible: "Make accessible",
     confirmDelete: "Delete this exam? Its questions will also be deleted.",
+    questionsSectionTitle: "Questions",
+    addQuestionInline: "+ Add a question",
+    noQuestionsYetHint: "You can add questions now, or later from \"Manage questions\".",
+    exitPasswordCreateLabel: "Exit password (optional)",
+    exitPasswordEditLabel: "New exit password (leave blank to keep unchanged)",
+    exitPasswordPlaceholder: "Leave blank = no password required",
+    exitPasswordHint:
+      "If set, this password will be asked from the user to finish the exam before time is up, or to abandon it.",
+    clearExitPassword: "Remove the current exit password",
+    exitPasswordBadgeTitle: "An exit password is set for this exam",
   },
 
   adminExamQuestions: {
@@ -284,6 +294,13 @@ export default {
     violationFinal: " — maximum number of exits reached, the exam will be submitted.",
     submitError: "Unable to send your answers",
     loadError: "Unable to load this exam",
+    abandon: "Abandon exam",
+    confirmAbandon: "Abandon the exam now? Your current answers will be submitted as they are.",
+    exitPasswordAbandonTitle: "Password required to abandon",
+    exitPasswordEarlyTitle: "Password required to finish before time is up",
+    exitPasswordLabel: "Password",
+    exitPasswordConfirm: "Confirm",
+    exitPasswordError: "Incorrect password.",
   },
 
   reunion: {

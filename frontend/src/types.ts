@@ -38,6 +38,7 @@ export interface Exam {
   createdAt: string;
   _count?: { questions: number };
   questions?: Question[];
+  hasExitPassword?: boolean;
 }
 
 export interface Meditation {

@@ -10,3 +10,4 @@ backend/node_modules/
 
 # Outillage local (tunnel Cloudflare) : binaire téléchargeable + logs, pas du code applicatif.
 tools/
+AppPerso-Guide-Utilisateur.pdf

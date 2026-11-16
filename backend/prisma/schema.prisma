@@ -54,6 +54,11 @@ model Exam {
   isActive    Boolean      @default(true)
   duration    Int?
   maxAttempts Int?
+  // Mot de passe optionnel (haché, jamais stocké ni renvoyé en clair) que l'utilisateur doit
+  // saisir pour quitter le verrouillage avant la fin du temps imparti ou pour abandonner
+  // l'examen — sert à garder le contrôle de ces sorties (ex. un surveillant qui le communique
+  // seulement quand c'est justifié). Null = aucune restriction, comportement inchangé.
+  exitPasswordHash String?
   createdAt   DateTime     @default(now())
   questions   Question[]
   results     ExamResult[]
@@ -76,6 +81,12 @@ model Answer {
   id          String       @id @default(uuid())
   text        String
   isCorrect   Boolean      @default(false)
+  // Un id étant un UUID aléatoire, l'ordre de récupération des réponses d'une question n'est
+  // pas garanti sans colonne de tri explicite (surtout après une modification : les réponses
+  // existantes sont supprimées puis recréées, voir routes/questions.ts) — ce champ fixe l'ordre
+  // voulu par l'admin, pour que la position affichée corresponde toujours à celle définie.
+  order       Int          @default(0)
+  createdAt   DateTime     @default(now())
   questionId  String
   question    Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
   userAnswers UserAnswer[]

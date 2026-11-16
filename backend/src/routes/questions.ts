@@ -19,9 +19,9 @@ router.get("/", async (req, res) => {
       ...(examId ? { examId } : {}),
       ...(isAdmin ? {} : { exam: { isActive: true } }),
     },
-    orderBy: [{ examId: "asc" }, { order: "asc" }],
+    orderBy: [{ examId: "asc" }, { order: "asc" }, { createdAt: "asc" }],
     include: {
-      answers: true,
+      answers: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] },
       exam: { select: { id: true, title: true } },
     },
   });
@@ -39,6 +39,13 @@ const answerInput = z.object({
 
 const questionTypeSchema = z.enum(["SINGLE", "MULTIPLE"]);
 
+// Fixe explicitement l'ordre des réponses selon leur position dans le tableau envoyé par
+// l'admin : un id de réponse étant un UUID aléatoire, sans ce champ l'ordre de relecture
+// n'est pas garanti (voir le commentaire sur Answer.order dans schema.prisma).
+function withOrder<T>(answers: T[]): (T & { order: number })[] {
+  return answers.map((a, i) => ({ ...a, order: i }));
+}
+
 function validateAnswerShape(type: "SINGLE" | "MULTIPLE", answers: { isCorrect: boolean }[]) {
   const correctCount = answers.filter((a) => a.isCorrect).length;
   if (type === "SINGLE" && correctCount !== 1) {
@@ -54,12 +61,11 @@ const questionSchema = z.object({
   examId: z.string().min(1),
   text: z.string().min(1),
   type: questionTypeSchema.default("SINGLE"),
-  order: z.number().int().default(0),
   answers: z.array(answerInput).min(2),
 });
 
 router.post("/", requireRole("ADMIN"), validateBody(questionSchema), async (req, res) => {
-  const { examId, text, type, order, answers } = req.body as z.infer<typeof questionSchema>;
+  const { examId, text, type, answers } = req.body as z.infer<typeof questionSchema>;
 
   const shapeError = validateAnswerShape(type, answers);
   if (shapeError) return res.status(400).json({ message: shapeError });
@@ -67,9 +73,18 @@ router.post("/", requireRole("ADMIN"), validateBody(questionSchema), async (req,
   const exam = await prisma.exam.findUnique({ where: { id: examId } });
   if (!exam) return res.status(404).json({ message: "Examen introuvable" });
 
+  // Place automatiquement la question à la fin de l'examen. Avant ce correctif, "order" valait
+  // toujours 0 par défaut (jamais renseigné par le frontend) pour TOUTES les questions d'un même
+  // examen : sans valeur pour les différencier, leur ordre d'affichage dépendait de l'ordre de
+  // stockage physique en base, qui peut changer après une simple modification d'une autre
+  // question — donnant l'impression qu'une modification « déplaçait » ou faisait disparaître
+  // une question different.
+  const { _max } = await prisma.question.aggregate({ where: { examId }, _max: { order: true } });
+  const order = (_max.order ?? -1) + 1;
+
   const question = await prisma.question.create({
-    data: { examId, text, type, order, answers: { create: answers } },
-    include: { answers: true },
+    data: { examId, text, type, order, answers: { create: withOrder(answers) } },
+    include: { answers: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] } },
   });
   await logAction(req.user!.id, "QUESTION_CREATE", `Création d'une question pour l'examen ${exam.title}`);
   res.status(201).json(question);
@@ -89,7 +104,10 @@ router.put("/:id", requireRole("ADMIN"), validateBody(updateSchema), async (req,
   // changent : changer seulement le type sans toucher aux réponses pouvait auparavant laisser
   // une question SINGLE avec plusieurs bonnes réponses (ou l'inverse), cassant la correction.
   if (answers || type) {
-    const existing = await prisma.question.findUnique({ where: { id: req.params.id }, include: { answers: true } });
+    const existing = await prisma.question.findUnique({
+      where: { id: req.params.id },
+      include: { answers: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] } },
+    });
     if (!existing) return res.status(404).json({ message: "Question introuvable" });
     const effectiveType = type ?? existing.type;
     const effectiveAnswers = answers ?? existing.answers;
@@ -106,9 +124,9 @@ router.put("/:id", requireRole("ADMIN"), validateBody(updateSchema), async (req,
       data: {
         ...rest,
         ...(type ? { type } : {}),
-        ...(answers ? { answers: { create: answers } } : {}),
+        ...(answers ? { answers: { create: withOrder(answers) } } : {}),
       },
-      include: { answers: true },
+      include: { answers: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] } },
     });
   });
 

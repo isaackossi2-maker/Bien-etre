@@ -1,8 +1,16 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
 import { api } from "../api/client";
 import { LibraryDocument } from "../types";
 import { resizeImageToDataUrl } from "../utils/image";
+
+// Rendu via pdf.js (canvas) plutôt qu'un <iframe> : le visualiseur PDF natif des navigateurs
+// dans une iframe est peu fiable pour les documents à plusieurs pages selon les navigateurs/
+// appareils (Safari/iOS notamment n'affichait souvent que la première page, sans défilement).
+pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
 interface DocumentLibraryProps {
   editable?: boolean;
@@ -51,6 +59,19 @@ export default function DocumentLibrary({ editable = false }: DocumentLibraryPro
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerLoading, setViewerLoading] = useState(false);
   const [viewerError, setViewerError] = useState<string | null>(null);
+  const [numPages, setNumPages] = useState(0);
+  const [viewerWidth, setViewerWidth] = useState(0);
+  const viewerContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = viewerContainerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      setViewerWidth(entries[0].contentRect.width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [viewerDoc]);
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
@@ -71,6 +92,7 @@ export default function DocumentLibrary({ editable = false }: DocumentLibraryPro
     setViewerLoading(true);
     setViewerError(null);
     setViewerUrl(null);
+    setNumPages(0);
     try {
       const res = await api.get(`/documents/${doc.id}/file`, { responseType: "blob" });
       const blob = new Blob([res.data], { type: doc.fileMimeType });
@@ -87,6 +109,7 @@ export default function DocumentLibrary({ editable = false }: DocumentLibraryPro
     setViewerUrl(null);
     setViewerDoc(null);
     setViewerError(null);
+    setNumPages(0);
   }
 
   async function handleDownload(doc: LibraryDocument) {
@@ -373,10 +396,36 @@ export default function DocumentLibrary({ editable = false }: DocumentLibraryPro
               </button>
             </div>
           </div>
-          <div style={{ flex: 1, minHeight: 0, background: "var(--surface)", borderRadius: 8, overflow: "hidden" }}>
+          <div
+            ref={viewerContainerRef}
+            style={{
+              flex: 1,
+              minHeight: 0,
+              background: "var(--surface)",
+              borderRadius: 8,
+              overflow: "auto",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 12,
+              padding: 12,
+            }}
+          >
             {viewerLoading && <p className="empty-state">{t("documentLibrary.loadingFile")}</p>}
             {viewerError && <p className="error-text">{viewerError}</p>}
-            {viewerUrl && <iframe src={viewerUrl} title={viewerDoc.title} style={{ width: "100%", height: "100%", border: "none" }} />}
+            {viewerUrl && viewerWidth > 0 && (
+              <Document
+                file={viewerUrl}
+                onLoadSuccess={({ numPages: n }) => setNumPages(n)}
+                onLoadError={() => setViewerError(t("documentLibrary.openError"))}
+                loading={<p className="empty-state">{t("documentLibrary.loadingFile")}</p>}
+                error={<p className="error-text">{t("documentLibrary.openError")}</p>}
+              >
+                {Array.from({ length: numPages }, (_, i) => (
+                  <Page key={i} pageNumber={i + 1} width={Math.min(viewerWidth - 24, 900)} />
+                ))}
+              </Document>
+            )}
           </div>
         </div>
       )}

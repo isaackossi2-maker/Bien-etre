@@ -1,4 +1,5 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { authenticate, requireRole } from "../middleware/auth";
@@ -7,6 +8,14 @@ import { logAction } from "../utils/log";
 
 const router = Router();
 router.use(authenticate);
+
+// Le hash du mot de passe de sortie ne doit jamais quitter le serveur : on ne renvoie jamais
+// exitPasswordHash, seulement un booléen indiquant s'il y en a un (pour que le frontend sache
+// s'il doit demander le mot de passe avant une sortie anticipée/un abandon).
+function withHasExitPassword<T extends { exitPasswordHash?: string | null }>(exam: T) {
+  const { exitPasswordHash, ...rest } = exam;
+  return { ...rest, hasExitPassword: !!exitPasswordHash };
+}
 
 // Liste des examens : l'admin voit tout, l'utilisateur ne voit que les examens accessibles
 router.get("/", async (req, res) => {
@@ -18,7 +27,7 @@ router.get("/", async (req, res) => {
   });
 
   if (req.user!.role === "ADMIN") {
-    return res.json(exams);
+    return res.json(exams.map(withHasExitPassword));
   }
 
   const attemptCounts = await prisma.examResult.groupBy({
@@ -28,7 +37,7 @@ router.get("/", async (req, res) => {
   });
   const attemptsMap = new Map(attemptCounts.map((a) => [a.examId, a._count._all]));
 
-  res.json(exams.map((exam) => ({ ...exam, attemptsUsed: attemptsMap.get(exam.id) ?? 0 })));
+  res.json(exams.map((exam) => withHasExitPassword({ ...exam, attemptsUsed: attemptsMap.get(exam.id) ?? 0 })));
 });
 
 // Détail d'un examen avec ses questions/réponses
@@ -37,8 +46,8 @@ router.get("/:id", async (req, res) => {
     where: { id: req.params.id },
     include: {
       questions: {
-        orderBy: { order: "asc" },
-        include: { answers: true },
+        orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+        include: { answers: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] } },
       },
     },
   });
@@ -55,9 +64,9 @@ router.get("/:id", async (req, res) => {
       });
     });
     const attemptsUsed = await prisma.examResult.count({ where: { examId: exam.id, userId: req.user!.id } });
-    return res.json({ ...exam, attemptsUsed });
+    return res.json(withHasExitPassword({ ...exam, attemptsUsed }));
   }
-  res.json(exam);
+  res.json(withHasExitPassword(exam));
 });
 
 const examCreateSchema = z.object({
@@ -66,6 +75,9 @@ const examCreateSchema = z.object({
   isActive: z.boolean().optional(),
   duration: z.number().int().positive().optional(),
   maxAttempts: z.number().int().positive().optional(),
+  // Mot de passe en clair reçu du formulaire admin, jamais stocké tel quel (haché juste en
+  // dessous). Vide/absent = pas de mot de passe de sortie pour cet examen.
+  exitPassword: z.string().optional(),
 });
 
 const examUpdateSchema = z.object({
@@ -74,18 +86,41 @@ const examUpdateSchema = z.object({
   isActive: z.boolean().optional(),
   duration: z.number().int().positive().nullable().optional(),
   maxAttempts: z.number().int().positive().nullable().optional(),
+  // Absent = ne touche pas au mot de passe existant ; chaîne vide = le supprime ; sinon le
+  // remplace. Distinct du cas "create" où l'absence équivaut simplement à "aucun mot de passe".
+  exitPassword: z.string().optional(),
 });
 
 router.post("/", requireRole("ADMIN"), validateBody(examCreateSchema), async (req, res) => {
-  const exam = await prisma.exam.create({ data: req.body as z.infer<typeof examCreateSchema> });
+  const { exitPassword, ...rest } = req.body as z.infer<typeof examCreateSchema>;
+  const exitPasswordHash = exitPassword?.trim() ? await bcrypt.hash(exitPassword.trim(), 10) : null;
+  const exam = await prisma.exam.create({ data: { ...rest, exitPasswordHash } });
   await logAction(req.user!.id, "EXAM_CREATE", `Création de l'examen ${exam.title}`);
-  res.status(201).json(exam);
+  res.status(201).json(withHasExitPassword(exam));
 });
 
 router.put("/:id", requireRole("ADMIN"), validateBody(examUpdateSchema), async (req, res) => {
-  const exam = await prisma.exam.update({ where: { id: req.params.id }, data: req.body as z.infer<typeof examUpdateSchema> });
+  const { exitPassword, ...rest } = req.body as z.infer<typeof examUpdateSchema>;
+  const data: typeof rest & { exitPasswordHash?: string | null } = { ...rest };
+  if (exitPassword !== undefined) {
+    data.exitPasswordHash = exitPassword.trim() ? await bcrypt.hash(exitPassword.trim(), 10) : null;
+  }
+  const exam = await prisma.exam.update({ where: { id: req.params.id }, data });
   await logAction(req.user!.id, "EXAM_UPDATE", `Modification de l'examen ${exam.title}`);
-  res.json(exam);
+  res.json(withHasExitPassword(exam));
+});
+
+// Vérifie le mot de passe de sortie sans jamais exposer le hash : utilisé par l'écran de
+// passage d'examen avant d'autoriser une sortie anticipée ou un abandon.
+const verifyExitPasswordSchema = z.object({ password: z.string() });
+
+router.post("/:id/verify-exit-password", validateBody(verifyExitPasswordSchema), async (req, res) => {
+  const { password } = req.body as z.infer<typeof verifyExitPasswordSchema>;
+  const exam = await prisma.exam.findUnique({ where: { id: req.params.id }, select: { exitPasswordHash: true } });
+  if (!exam) return res.status(404).json({ message: "Examen introuvable" });
+  if (!exam.exitPasswordHash) return res.json({ valid: true });
+  const valid = await bcrypt.compare(password, exam.exitPasswordHash);
+  res.json({ valid });
 });
 
 router.delete("/:id", requireRole("ADMIN"), async (req, res) => {
@@ -185,8 +220,8 @@ router.get("/results/:id/detail", async (req, res) => {
       exam: {
         include: {
           questions: {
-            orderBy: { order: "asc" },
-            include: { answers: true },
+            orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+            include: { answers: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] } },
           },
         },
       },
