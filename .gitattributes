@@ -1,0 +1,6 @@
+# Ces fichiers sont exécutés tels quels dans des conteneurs Linux : une fin de ligne CRLF
+# (ce que Git produit au clone sur une machine avec core.autocrlf=true, courant sous Windows)
+# casse leur shebang ("#!/bin/sh\r" n'est pas reconnu par le noyau -> erreur "not found" au
+# démarrage du conteneur). "eol=lf" force toujours LF au clone, quel que soit le réglage local.
+*.sh text eol=lf
+Dockerfile text eol=lf
